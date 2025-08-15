@@ -1,3 +1,3 @@
 # ml_scratch
 
-Start with embeddings/generate_embeddings.py. Install embeddings/requirements.txt, then run the script.
+The embedding example uses MiniLM and Oracle. It recreates TEXT_EMBEDDINGS and expects insert_text_embedding to exist in the database. Use a disposable demo database.
