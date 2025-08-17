@@ -1,3 +1,3 @@
 # mcp-prac1
 
-HTTP tool experiment. From this folder, run python -m uvicorn mcp.mcp_server:app. Loki and Ollama are separate services.
+Start the HTTP server with python -m uvicorn mcp.mcp_server:app. In another terminal, run streamlit run app.py. The UI asks questions about Loki logs using Ollama.
