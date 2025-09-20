@@ -1,3 +1,3 @@
 # mcp-prac1
 
-Start the HTTP server with python -m uvicorn mcp.mcp_server:app. In another terminal, run streamlit run app.py. The UI asks questions about Loki logs using Ollama.
+The HTTP server exposes log fetching and inference separately. Start uvicorn mcp.mcp_server:app, then streamlit run app.py. This is a custom HTTP interface, not an MCP protocol server.
