@@ -167,4 +167,17 @@ def refresh_embeddings(collection_name="default"):
         vs.add_documents(chunks, ids=ids)
     ## Already persisted. No need for explicit vectorstore.persist() call
 
+def retrieve_context(vectorstore, query, k=4):
+    return vectorstore.similarity_search(query, k=k)
 
+if __name__ == "__main__":
+    collections_name = "documentation"
+    vs = ensure_vectorstore(collections_name)
+    print("Collection name", getattr(vs, "_collection"), "Count of documents:", vs._collection.count())
+    refresh_embeddings(collection_name=collections_name)
+    print("After refresh")
+    print("Collection name", getattr(vs, "_collection"), "Count of documents:", vs._collection.count())
+
+    query = "What is name of frontend project"
+    context = retrieve_context(vs, query)
+    print(context)
