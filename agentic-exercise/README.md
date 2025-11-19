@@ -1,3 +1,3 @@
 # agentic-exercise
 
-Install requirements.txt and start Ollama. Run python first-entrypoint.py for the calculator and knowledge lookup example.
+Examples cover basic tools, search and in-memory checkpoints. Run first-entrypoint.py first, then the scripts under langgraph_agents. Check the selected model name before running.
