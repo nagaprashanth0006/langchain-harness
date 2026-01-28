@@ -1,3 +1,3 @@
 # ml_scratch
 
-The embedding example uses MiniLM and Oracle. It recreates TEXT_EMBEDDINGS and expects insert_text_embedding to exist in the database. Use a disposable demo database.
+Run the scripts under vector_similarities to compare cosine similarity, vector angles and distance matrices. The embeddings folder contains the separate Oracle example.
