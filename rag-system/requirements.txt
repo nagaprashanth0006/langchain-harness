@@ -1,0 +1,54 @@
+# ============================================================
+# Production RAG System — Dependencies
+# ============================================================
+# Pin minor versions in prod; let patch float for security fixes.
+# Use `pip-compile` (pip-tools) or Poetry for fully locked lockfiles.
+
+# --- Core framework ---------------------------------------------------------
+fastapi>=0.111.0,<0.112
+uvicorn[standard]>=0.29.0,<0.30
+pydantic>=2.7.0,<3.0
+pydantic-settings>=2.2.0,<3.0
+python-multipart>=0.0.9      # FastAPI file uploads
+
+# --- Document loaders -------------------------------------------------------
+pypdf>=4.2.0                 # PDF extraction (pure Python, fast)
+pdfplumber>=0.11.0           # PDF table extraction (wraps pdfminer)
+python-docx>=1.1.0           # .docx files
+beautifulsoup4>=4.12.0       # HTML parsing
+lxml>=5.2.0                  # Fast HTML/XML parser for BS4
+markdown>=3.6                # .md → plain text
+
+# --- Chunking ---------------------------------------------------------------
+# langchain-text-splitters provides RecursiveCharacterTextSplitter
+langchain-text-splitters>=0.2.0,<0.3
+nltk>=3.8.1                  # Sentence tokenization for sentence chunker
+tiktoken>=0.7.0              # Token counting (OpenAI tokenizer)
+
+# --- Embedding --------------------------------------------------------------
+openai>=1.30.0,<2.0          # OpenAI embeddings + chat
+anthropic>=0.28.0,<1.0       # Claude generation
+sentence-transformers>=3.0.0 # HuggingFace local embeddings + cross-encoder
+cohere>=5.5.0                # Cohere embeddings + reranker
+joblib>=1.4.0                # Embedding cache (disk-based memoization)
+ollama>=0.3.0                # Ollama Python SDK — local LLM + embedding inference
+
+# --- Vector stores ----------------------------------------------------------
+chromadb>=0.5.0,<0.6         # Local vector DB with persistence
+# pgvector: pip install pgvector psycopg[binary]  (optional, uncomment if used)
+# pgvector>=0.3.0
+# psycopg[binary]>=3.1.0
+# sqlalchemy>=2.0.0
+
+# --- Sparse retrieval -------------------------------------------------------
+rank-bm25>=0.2.2             # BM25 implementation (Okapi BM25)
+
+# --- Observability ----------------------------------------------------------
+structlog>=24.1.0            # Structured JSON logging
+python-json-logger>=2.0.7    # stdlib logging → JSON
+
+# --- Dev / Testing ----------------------------------------------------------
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0                # Async HTTP client for FastAPI tests
+python-dotenv>=1.0.0         # Load .env in scripts
