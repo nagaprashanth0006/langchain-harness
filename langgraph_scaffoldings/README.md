@@ -1,1 +1,3 @@
-Contains code snippets and skeleton code for agentic AI systems and Agentic workflows using langchain, langgraph and related libraries in python.
+# langgraph_scaffoldings
+
+Document upload and chat with Streamlit, Chroma and Ollama. Run streamlit run streamlit_app.py. The separate rag-system project now provides configurable embedding, storage and retrieval components.
