@@ -1,3 +1,3 @@
 # ml_scratch
 
-Run the scripts under vector_similarities to compare cosine similarity, vector angles and distance matrices. The embeddings folder contains the separate Oracle example.
+Vector experiments cover cosine similarity and L1/L2/Chebyshev distance. Run each script separately. The RAG pipeline uses dense and sparse ranking; these plots help inspect the underlying measures.
