@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-system"
+version = "1.0.0"
+description = "Production-grade pluggable RAG pipeline"
+requires-python = ">=3.11"
+
+# After cloning, run once from rag-system/:
+#   pip install -e .
+#
+# This installs the project as an editable package so every module
+# (config, models, ingestion, embedding, storage, retrieval, generation, rag, api)
+# is importable from anywhere — no sys.path manipulation needed.
+#
+# Production deployment:
+#   pip install .                    # non-editable
+#   pip install --no-deps .          # skip re-installing deps (use requirements.txt)
+
+[tool.setuptools.packages.find]
+# Discover all packages in the project root.
+# Excludes test dirs, data/cache directories.
+where = ["."]
+exclude = ["tests*", ".data*", ".cache*", "*.egg-info"]
+
+# Flat top-level modules (config.py, models.py, main.py) are auto-discovered
+# by setuptools when using packages.find — no extra py-modules declaration needed.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
