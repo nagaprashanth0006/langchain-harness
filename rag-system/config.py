@@ -157,7 +157,7 @@ class Settings(BaseSettings):
 
     # ---- Generation --------------------------------------------------------
     generator_type: GeneratorType = Field(default=GeneratorType.OLLAMA)
-    anthropic_model: str = Field(default="claude-sonnet-4-5")
+    anthropic_model: str = Field(default="claude-sonnet-4-6")
     openai_model: str = Field(default="gpt-4o")
     max_tokens: int = Field(default=2048)
     temperature: float = Field(default=0.1, description="Low temp for factual RAG")
