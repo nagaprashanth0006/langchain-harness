@@ -1,0 +1,173 @@
+datasources:
+  ddg:
+    enabled: true
+    max_results: 10
+    rate_limit: 1.0
+
+  pubmed:
+    enabled: true
+    api_key: null
+    rate_limit: 3.0
+    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+
+  semantic_scholar:
+    enabled: true
+    api_key: null
+    rate_limit: 1.0
+    base_url: "https://api.semanticscholar.org/graph/v1"
+
+  openalexs:
+    enabled: true
+    email: null
+    rate_limit: 10.0
+    base_url: "https://api.openalex.org"
+
+  crossref:
+    enabled: true
+    email: null
+    rate_limit: 5.0
+    base_url: "https://api.crossref.org"
+
+  arxiv:
+    enabled: true
+    rate_limit: 3.0
+    base_url: "http://export.arxiv.org/api/query"
+
+  unpaywall:
+    enabled: true
+    email: null
+    rate_limit: 5.0
+    base_url: "https://api.unpaywall.org/v2"
+
+  eligibility:
+    empirical_factual:
+      - ddg
+      - pubmed
+      - semantic_scholar
+      - openalexs
+      - crossref
+      - arxiv
+      - unpaywall
+    procedural_reference:
+      - ddg
+      - pubmed
+      - crossref
+      - openalexs
+    interpretive_subjective:
+      - ddg
+    personal_sensitive:
+      - ddg
+
+backends:
+  synthesis:
+    type: ollama
+    base_url: "http://localhost:11434"
+    model: "qwen2.5:7b"
+    fallback_model: "llama3.1:8b"
+    timeout: 120
+
+  classifier:
+    type: ollama
+    base_url: "http://localhost:11434"
+    model: "qwen2.5:7b"
+    fallback_model: "llama3.2:3b"
+    timeout: 30
+
+  judges:
+    local:
+      - id: "local-1"
+        base_url: "http://localhost:11434"
+        model: "gemma3:12b"
+        timeout: 90
+      - id: "local-2"
+        base_url: "http://localhost:11434"
+        model: "phi4:14b"
+        timeout: 90
+    cloud:
+      - id: "groq-llama"
+        provider: groq
+        api_key: null
+        model: "llama-3.3-70b-versatile"
+        base_url: "https://api.groq.com/openai/v1"
+        timeout: 60
+      - id: "openrouter-qwen"
+        provider: openrouter
+        api_key: null
+        model: "qwen/qwen-2.5-72b-instruct"
+        base_url: "https://openrouter.ai/api/v1"
+        timeout: 60
+      - id: "openrouter-mistral"
+        provider: openrouter
+        api_key: null
+        model: "mistralai/mistral-large-2411"
+        base_url: "https://openrouter.ai/api/v1"
+        timeout: 60
+
+embeddings:
+  model: "nomic-embed-text"
+  base_url: "http://localhost:11434"
+  enabled: true
+
+quorum:
+  judge_count: 3
+  threshold: 0.65
+  granularity: "auto"
+
+loop:
+  max_iterations: 5
+  plateau_window: 3
+  plateau_delta: 0.05
+
+cache:
+  ttl_days: 30
+  max_size_mb: 500
+  db_path: "source_store.db"
+
+slider_mappings:
+  depth:
+    1:
+      max_iterations: 1
+      citation_depth: 1
+      granularity: "whole"
+      perspective_breadth: 1
+    2:
+      max_iterations: 2
+      citation_depth: 1
+      granularity: "whole"
+      perspective_breadth: 2
+    3:
+      max_iterations: 3
+      citation_depth: 2
+      granularity: "auto"
+      perspective_breadth: 3
+    4:
+      max_iterations: 4
+      citation_depth: 2
+      granularity: "per_claim"
+      perspective_breadth: 4
+    5:
+      max_iterations: 5
+      citation_depth: 3
+      granularity: "per_claim"
+      perspective_breadth: 5
+  accuracy:
+    1:
+      threshold: 0.70
+      judge_count: 3
+      min_corroborating: 1
+    2:
+      threshold: 0.72
+      judge_count: 3
+      min_corroborating: 2
+    3:
+      threshold: 0.75
+      judge_count: 3
+      min_corroborating: 2
+    4:
+      threshold: 0.78
+      judge_count: 4
+      min_corroborating: 3
+    5:
+      threshold: 0.80
+      judge_count: 5
+      min_corroborating: 3
