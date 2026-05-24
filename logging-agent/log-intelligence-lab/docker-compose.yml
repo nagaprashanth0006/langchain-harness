@@ -5,8 +5,13 @@ x-common-labels: &common_labels
   env: "dev"
   stack: "demo"
 
+x-uim-labels: &uim_labels
+  logging: "promtail"
+  env: "local-demo"
+  stack: "logsphere-validation"
+  namespace: "uim-demo"
+
 services:
-  # ---------- Ingress / Reverse Proxy ----------
   nginx:
     image: nginx:1.25
     ports:
@@ -14,6 +19,8 @@ services:
     depends_on:
       - fastapi
       - flaskblog
+      - agent
+      - mysql
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./logs/nginx:/var/log/nginx
@@ -21,7 +28,59 @@ services:
       <<: *common_labels
       app: "nginx"
 
-  # ---------- Python services ----------
+  agent:
+    build: ./agent
+    depends_on:
+      - loki
+      - promtail
+      - mysql
+      - redis
+    ports:
+      - "5050:5000"
+    volumes:
+      - ./agent:/app
+      - ./logs/agent:/app/logs
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/metrics" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      <<: *common_labels
+      app: "agent"
+
+  tomcat:
+    build: ./tomcat
+    environment:
+      - JAVA_OPTS=-Djava.util.logging.config.file=/usr/local/tomcat/logging.properties
+    volumes:
+      - ./tomcat/webapps:/usr/local/tomcat/webapps
+      - ./logs/tomcat:/usr/local/tomcat/logs
+    labels:
+      <<: *common_labels
+      app: "tomcat"
+
+  redis:
+    image: redis:6
+    depends_on:
+      - mysql
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    labels:
+      <<: *common_labels
+      app: "redis"
+
+  mysql:
+    image: mysql:8
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=sampledb
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    labels:
+      <<: *common_labels
+      app: "mysql"
+
   fastapi:
     build: ./fastapi
     environment:
@@ -44,20 +103,82 @@ services:
       <<: *common_labels
       app: "flask-blog"
 
-  # ---------- Load generator ----------
+  uim-auth:
+    build: ./uim-simulator
+    environment:
+      - SERVICE_NAME=uim-auth
+      - NAMESPACE=uim-demo
+      - APP_ENV=local-demo
+      - SCENARIO=mixed
+      - ERROR_RATE=0.25
+      - INTERVAL_SECS=0.7
+      - CONTROL_PORT=9001
+    ports:
+      - "9011:9001"
+    labels:
+      <<: *uim_labels
+      app: "uim-auth"
+
+  uim-apps:
+    build: ./uim-simulator
+    environment:
+      - SERVICE_NAME=uim-apps
+      - NAMESPACE=uim-demo
+      - APP_ENV=local-demo
+      - SCENARIO=mixed
+      - ERROR_RATE=0.22
+      - INTERVAL_SECS=0.8
+      - CONTROL_PORT=9001
+    ports:
+      - "9012:9001"
+    labels:
+      <<: *uim_labels
+      app: "uim-apps"
+
+  uim-smart-search:
+    build: ./uim-simulator
+    environment:
+      - SERVICE_NAME=uim-smart-search
+      - NAMESPACE=uim-demo
+      - APP_ENV=local-demo
+      - SCENARIO=mixed
+      - ERROR_RATE=0.18
+      - INTERVAL_SECS=1.0
+      - CONTROL_PORT=9001
+    ports:
+      - "9013:9001"
+    labels:
+      <<: *uim_labels
+      app: "uim-smart-search"
+
+  uim-topology:
+    build: ./uim-simulator
+    environment:
+      - SERVICE_NAME=uim-topology
+      - NAMESPACE=uim-demo
+      - APP_ENV=local-demo
+      - SCENARIO=mixed
+      - ERROR_RATE=0.16
+      - INTERVAL_SECS=1.1
+      - CONTROL_PORT=9001
+    ports:
+      - "9014:9001"
+    labels:
+      <<: *uim_labels
+      app: "uim-topology"
+
   locust:
     build: ./locust
     depends_on:
       - nginx
     ports:
-      - "8090:8089"    # Locust Web UI
+      - "8090:8089"
     environment:
       - TARGET_BASE=http://nginx
     labels:
       <<: *common_labels
       app: "locust"
 
-  # ---------- Loki / Promtail / Grafana ----------
   loki:
     image: grafana/loki:2.9.0
     command: -config.file=/etc/loki/config.yml
@@ -95,3 +216,7 @@ services:
     labels:
       <<: *common_labels
       app: "grafana"
+
+
+
+# docker-compose down && docker system prune --volumes --force && docker-compose up -d --build
