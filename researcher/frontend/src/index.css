@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-gray-100 font-sans antialiased;
+  min-height: 100vh;
+}
+
+.prose-dark {
+  @apply text-gray-200;
+}
+
+.prose-dark h1, .prose-dark h2, .prose-dark h3 {
+  @apply text-white font-semibold;
+}
+
+.prose-dark a {
+  @apply text-accent-blue hover:underline;
+}
+
+.prose-dark code {
+  @apply text-amber-300 bg-surface-raised px-1 rounded text-sm font-mono;
+}
+
+.prose-dark pre {
+  @apply bg-surface-raised border border-surface-border rounded-lg p-4 overflow-x-auto;
+}
+
+.prose-dark blockquote {
+  @apply border-l-4 border-accent-purple pl-4 text-gray-400 italic;
+}
+
+.prose-dark ul { @apply list-disc pl-5 space-y-1; }
+.prose-dark ol { @apply list-decimal pl-5 space-y-1; }
+.prose-dark li { @apply text-gray-200; }
+.prose-dark p { @apply text-gray-200 leading-relaxed; }
+.prose-dark strong { @apply text-white font-semibold; }
+
+.slider-thumb::-webkit-slider-thumb {
+  @apply appearance-none w-5 h-5 rounded-full bg-accent-blue cursor-pointer shadow-lg;
+  -webkit-appearance: none;
+}
+
+.slider-thumb::-moz-range-thumb {
+  @apply w-5 h-5 rounded-full bg-accent-blue cursor-pointer border-0 shadow-lg;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2d3a #0f1117;
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { @apply bg-surface; }
+.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-surface-border rounded; }
+
+@keyframes pulse-dot {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.thinking-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  animation: pulse-dot 1.4s infinite ease-in-out both;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.25s ease forwards; }

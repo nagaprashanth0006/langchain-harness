@@ -1,3 +1,3 @@
 # agentic-ai-learning
 
-MCP tool-use example. Install requirements.txt, start Ollama with llama3.2 and set TAVILY_API_KEY for search. Run python 1_agent_with_tools.py.
+Run examples 1 through 4 in order: tools, routing, orchestration and review. All use the same local MCP server. Set TAVILY_API_KEY for web search and pull llama3.2 in Ollama.
