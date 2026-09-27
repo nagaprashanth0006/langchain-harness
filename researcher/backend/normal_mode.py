@@ -1,4 +1,5 @@
-"""Normal mode: fast single-pass DDG → fetch → synthesise."""
+"Normal mode: fast single-pass DDG → fetch → synthesise."
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -27,11 +28,13 @@ async def run_normal(
 ) -> Dict[str, Any]:
     start = time.time()
 
-    await event_queue.put({
-        "type": "progress",
-        "step": "search",
-        "message": "Searching the web...",
-    })
+    await event_queue.put(
+        {
+            "type": "progress",
+            "step": "search",
+            "message": "Searching the web...",
+        }
+    )
 
     queries = _make_queries(query)
     all_sources: List[Source] = []
@@ -39,21 +42,25 @@ async def run_normal(
         results = await ddg_search(q, max_results=8)
         all_sources.extend(results)
 
-    await event_queue.put({
-        "type": "progress",
-        "step": "dedup",
-        "message": f"Found {len(all_sources)} results, deduplicating...",
-    })
+    await event_queue.put(
+        {
+            "type": "progress",
+            "step": "dedup",
+            "message": f"Found {len(all_sources)} results, deduplicating...",
+        }
+    )
 
     deduped, _ = await deduplicate(all_sources)
 
     to_enrich = [s for s in deduped if not s.text or len(s.text) < 200][:5]
     if to_enrich:
-        await event_queue.put({
-            "type": "progress",
-            "step": "enrich",
-            "message": f"Fetching full text for {len(to_enrich)} pages...",
-        })
+        await event_queue.put(
+            {
+                "type": "progress",
+                "step": "enrich",
+                "message": f"Fetching full text for {len(to_enrich)} pages...",
+            }
+        )
         enriched = await enrich_sources(to_enrich, max_concurrent=4)
         for orig, enr in zip(to_enrich, enriched):
             idx = next((i for i, s in enumerate(deduped) if s.url == orig.url), None)
@@ -66,11 +73,13 @@ async def run_normal(
     for src in deduped[:8]:
         await event_queue.put({"type": "source_found", "source": src.to_dict()})
 
-    await event_queue.put({
-        "type": "progress",
-        "step": "synthesize",
-        "message": "Generating answer...",
-    })
+    await event_queue.put(
+        {
+            "type": "progress",
+            "step": "synthesize",
+            "message": "Generating answer...",
+        }
+    )
 
     synth_backend = topology.synthesis_backend
     await event_queue.put({"type": "synthesis_start"})

@@ -1,4 +1,5 @@
-"""Thin wrapper for OpenAI-compatible LLM calls (Ollama, Groq, OpenRouter)."""
+"Thin wrapper for OpenAI-compatible LLM calls (Ollama, Groq, OpenRouter)."
+
 from __future__ import annotations
 import asyncio
 import json
@@ -49,7 +50,9 @@ class LLMClient:
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(self._chat_endpoint, json=payload, headers=headers)
+                resp = await client.post(
+                    self._chat_endpoint, json=payload, headers=headers
+                )
                 resp.raise_for_status()
                 data = resp.json()
                 return data["choices"][0]["message"]["content"]
@@ -59,7 +62,9 @@ class LLMClient:
                 f"Make sure Ollama is running (`ollama serve`) and model '{self.model}' is pulled (`ollama pull {self.model}`)."
             )
         except httpx.TimeoutException:
-            raise TimeoutError(f"LLM request timed out after {self.timeout}s (model: {self.model})")
+            raise TimeoutError(
+                f"LLM request timed out after {self.timeout}s (model: {self.model})"
+            )
 
     async def chat_stream(
         self,
@@ -80,7 +85,9 @@ class LLMClient:
         }
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream("POST", self._chat_endpoint, json=payload, headers=headers) as resp:
+                async with client.stream(
+                    "POST", self._chat_endpoint, json=payload, headers=headers
+                ) as resp:
                     resp.raise_for_status()
                     async for line in resp.aiter_lines():
                         if line.startswith("data: "):

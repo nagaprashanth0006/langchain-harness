@@ -2,31 +2,31 @@ import streamlit as st
 from rag_chat import rag_response
 from vector_store_operations import check_vs, vectorize_docs
 
-st.title("Streamlit App")
-session = st.session_state
-session["vs_collections_name"] = "temporary_from_streamlit_app"
-st.info(check_vs(session["vs_collections_name"]))
+st.title("Document chat")
+collection = "document_chat"
+try:
+    _, count = check_vs(collection)
+    st.caption(f"Indexed chunks: {count}")
+except Exception as exc:
+    st.error(f"Could not open the document store: {exc}")
+    st.stop()
 
-uploaded_files = st.file_uploader(
-    label="Select file to upload",
-    type=["txt", "pdf"],
-    accept_multiple_files=True,
-)
+uploads = st.file_uploader("Documents", type=["txt", "pdf"], accept_multiple_files=True)
+if st.button("Index documents", disabled=not uploads):
+    try:
+        with st.spinner("Indexing documents"):
+            success, error = vectorize_docs(uploads, collection_name=collection)
+        if success:
+            st.success("Documents indexed. You can ask a question now.")
+        else:
+            st.error(f"Could not index documents: {error}")
+    except Exception as exc:
+        st.error(f"Could not index documents: {exc}")
 
-if st.button("Upload file"):
-    with st.spinner("Processing..", show_time=True):
-        vectorized, e = vectorize_docs(uploaded_files, collection_name=session["vs_collections_name"])
-
-    if vectorized:
-        st.info("File processed.")
-    else:
-        st.error("Unable to process documents")
-        st.error(e)
-
-prompt = st.text_input(label="Enter your prompt",
-                       value="What is the name of the react project?")
-                       #value="What does the chapter 3 mainly focuses on in the multi agent systems document?")
-if st.button("Send", type="secondary"):
-    with st.spinner("Processing", show_time=True):
-        st.info(rag_response(prompt, collection_name=session["vs_collections_name"]))
-
+prompt = st.text_input("Question", placeholder="What does the document explain?")
+if st.button("Ask", disabled=not prompt.strip()):
+    try:
+        with st.spinner("Reading the documents"):
+            st.write(rag_response(prompt, collection_name=collection))
+    except Exception as exc:
+        st.error(f"Could not answer. Check Ollama and the selected models: {exc}")

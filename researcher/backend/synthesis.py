@@ -1,4 +1,5 @@
-"""Answer synthesis and claim extraction."""
+"Answer synthesis and claim extraction."
+
 from __future__ import annotations
 import json
 import logging
@@ -67,9 +68,7 @@ async def synthesize_answer(
             + "; ".join(failed_claims)
         )
     if gap_list:
-        user_parts.append(
-            f"\nIdentified gaps to address: " + "; ".join(gap_list)
-        )
+        user_parts.append(f"\nIdentified gaps to address: " + "; ".join(gap_list))
 
     messages = [
         {"role": "system", "content": system},
@@ -112,7 +111,9 @@ async def extract_claims(answer: str, backend: Dict[str, Any]) -> List[Claim]:
     ]
 
     try:
-        raw = await client.chat(messages, temperature=0.0, max_tokens=2000, json_mode=True)
+        raw = await client.chat(
+            messages, temperature=0.0, max_tokens=2000, json_mode=True
+        )
         raw = raw.strip()
         if raw.startswith("```"):
             lines = raw.split("\n")
@@ -128,7 +129,7 @@ async def extract_claims(answer: str, backend: Dict[str, Any]) -> List[Claim]:
         claims = []
         for item in items:
             claim = Claim(
-                id=item.get("id", f"c{len(claims)+1}"),
+                id=item.get("id", f"c{len(claims) + 1}"),
                 text=item.get("text", ""),
                 cited_source_ids=item.get("cited_source_ids", []),
                 status=ClaimStatus.PENDING,
@@ -137,8 +138,10 @@ async def extract_claims(answer: str, backend: Dict[str, Any]) -> List[Claim]:
         return claims
     except Exception as e:
         logger.warning(f"Claim extraction failed: {e}")
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", answer) if len(s.strip()) > 30]
-        return [Claim(id=f"c{i+1}", text=s) for i, s in enumerate(sentences[:10])]
+        sentences = [
+            s.strip() for s in re.split(r"(?<=[.!?])\s+", answer) if len(s.strip()) > 30
+        ]
+        return [Claim(id=f"c{i + 1}", text=s) for i, s in enumerate(sentences[:10])]
 
 
 def verify_citations(answer: str, source_ids: set) -> List[str]:

@@ -1,6 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-
-// ─── Utility Functions ───
 const sigmoid = (x) => 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
 const sigmoidDeriv = (x) => x * (1 - x);
 const relu = (x) => Math.max(0, x);
@@ -13,8 +11,6 @@ const ACTIVATIONS = {
   relu: { fn: relu, deriv: reluDeriv },
   tanh: { fn: tanh_, deriv: tanhDeriv },
 };
-
-// ─── Dataset Generators ───
 function generateXOR(n = 200) {
   const data = [];
   for (let i = 0; i < n; i++) {
@@ -46,8 +42,6 @@ function generateSpiral(n = 200) {
   }
   return data;
 }
-
-// ─── Neural Network Class ───
 class NeuralNetwork {
   constructor(layerSizes, activation = "sigmoid", learningRate = 0.5) {
     this.layerSizes = layerSizes;
@@ -109,8 +103,6 @@ class NeuralNetwork {
     const numLayers = this.weights.length;
     const deltas = new Array(numLayers);
     const gradients = [];
-
-    // Output layer delta
     const outputLayer = numLayers;
     const outputDeltas = [];
     for (let j = 0; j < this.layerSizes[this.layerSizes.length - 1]; j++) {
@@ -119,8 +111,6 @@ class NeuralNetwork {
       outputDeltas.push(error * sigmoidDeriv(output));
     }
     deltas[numLayers - 1] = outputDeltas;
-
-    // Hidden layer deltas
     for (let l = numLayers - 2; l >= 0; l--) {
       const layerDeltas = [];
       for (let j = 0; j < this.layerSizes[l + 1]; j++) {
@@ -132,8 +122,6 @@ class NeuralNetwork {
       }
       deltas[l] = layerDeltas;
     }
-
-    // Compute gradients and update weights
     for (let l = 0; l < numLayers; l++) {
       const layerGrad = [];
       for (let j = 0; j < this.weights[l].length; j++) {
@@ -189,8 +177,6 @@ class NeuralNetwork {
     return this.weights.map(layer => layer.map(row => [...row]));
   }
 }
-
-// ─── NetworkGraph SVG Component ───
 function NetworkGraph({ network, lastResult, stepPhase }) {
   if (!network) return null;
   const layers = network.layerSizes;
@@ -237,7 +223,7 @@ function NetworkGraph({ network, lastResult, stepPhase }) {
         </linearGradient>
       </defs>
 
-      {/* Connections */}
+      
       {network.weights.map((layer, li) =>
         layer.map((row, j) =>
           row.map((w, k) => {
@@ -282,7 +268,7 @@ function NetworkGraph({ network, lastResult, stepPhase }) {
         )
       )}
 
-      {/* Neurons */}
+      
       {positions.map((layer, li) =>
         layer.map((pos, ni) => {
           const activation = activations ? activations[li][ni] : 0.5;
@@ -315,7 +301,7 @@ function NetworkGraph({ network, lastResult, stepPhase }) {
         })
       )}
 
-      {/* Layer Labels */}
+      
       {positions.map((layer, li) => (
         <text
           key={`label-${li}`}
@@ -332,8 +318,6 @@ function NetworkGraph({ network, lastResult, stepPhase }) {
     </svg>
   );
 }
-
-// ─── Weight Matrix Display ───
 function WeightMatrix({ network }) {
   if (!network) return null;
   return (
@@ -381,8 +365,6 @@ function WeightMatrix({ network }) {
     </div>
   );
 }
-
-// ─── Mini Loss Chart ───
 function LossChart({ history }) {
   if (history.length < 2) return <div style={{ color: "#64748b", fontSize: 11, padding: 12 }}>Training will show loss curve here...</div>;
   const W = 320;
@@ -405,7 +387,7 @@ function LossChart({ history }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 120 }}>
-      {/* Grid lines */}
+      
       {[0, 0.25, 0.5, 0.75, 1].map(t => {
         const y = pad.t + t * (H - pad.t - pad.b);
         return <line key={t} x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="#1e293b" strokeWidth="0.5" />;
@@ -413,12 +395,12 @@ function LossChart({ history }) {
       <text x={2} y={pad.t + 4} fill="#64748b" fontSize="8" fontFamily="'JetBrains Mono', monospace">{maxLoss.toFixed(2)}</text>
       <text x={2} y={H - pad.b} fill="#64748b" fontSize="8" fontFamily="'JetBrains Mono', monospace">{minLoss.toFixed(2)}</text>
 
-      {/* Loss line */}
+      
       <polyline points={points} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinejoin="round" />
-      {/* Accuracy line */}
+      
       <polyline points={accPoints} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
 
-      {/* Legend */}
+      
       <line x1={pad.l} y1={H - 5} x2={pad.l + 15} y2={H - 5} stroke="#f43f5e" strokeWidth="1.5" />
       <text x={pad.l + 18} y={H - 2} fill="#f43f5e" fontSize="8" fontFamily="'JetBrains Mono', monospace">Loss</text>
       <line x1={pad.l + 55} y1={H - 5} x2={pad.l + 70} y2={H - 5} stroke="#22d3ee" strokeWidth="1.5" strokeDasharray="4 2" />
@@ -426,8 +408,6 @@ function LossChart({ history }) {
     </svg>
   );
 }
-
-// ─── Confusion Matrix ───
 function ConfusionMatrix({ metrics }) {
   if (!metrics) return null;
   const { tp, fp, fn, tn } = metrics;
@@ -455,8 +435,6 @@ function ConfusionMatrix({ metrics }) {
     </div>
   );
 }
-
-// ─── Main App ───
 export default function NeuralNetworkLab() {
   const [config, setConfig] = useState({
     layers: [2, 4, 4, 1],
@@ -620,7 +598,7 @@ export default function NeuralNetworkLab() {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      {/* Header */}
+      
       <div style={{ textAlign: "center", marginBottom: 16 }}>
         <h1 style={{
           fontFamily: DISPLAY_FONT, fontSize: 26, fontWeight: 700, margin: 0,
@@ -635,7 +613,7 @@ export default function NeuralNetworkLab() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 220px", gap: 12, maxWidth: 1200, margin: "0 auto" }}>
-        {/* LEFT: Config */}
+        
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={panelStyle}>
             <div style={labelStyle}>Architecture</div>
@@ -698,7 +676,7 @@ export default function NeuralNetworkLab() {
             />
           </div>
 
-          {/* Controls */}
+          
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <button onClick={initNetwork} style={{
               ...btnBase, background: "rgba(30, 41, 59, 0.8)", color: "#94a3b8",
@@ -744,9 +722,9 @@ export default function NeuralNetworkLab() {
           </div>
         </div>
 
-        {/* CENTER: Visualization */}
+        
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Network Graph */}
+          
           <div style={{ ...panelStyle, position: "relative" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <div style={labelStyle}>Network Architecture</div>
@@ -763,13 +741,13 @@ export default function NeuralNetworkLab() {
             <NetworkGraph network={netRef.current} lastResult={lastResult} stepPhase={stepPhase} />
           </div>
 
-          {/* Loss Chart */}
+          
           <div style={panelStyle}>
             <div style={labelStyle}>Training Progress — Epoch {currentEpoch}</div>
             <LossChart history={history} />
           </div>
 
-          {/* Epoch Log */}
+          
           <div style={{ ...panelStyle, maxHeight: 170, overflowY: "auto" }}>
             <div style={labelStyle}>Epoch Log</div>
             <div style={{ fontSize: 9, fontFamily: FONT }}>
@@ -798,9 +776,9 @@ export default function NeuralNetworkLab() {
           </div>
         </div>
 
-        {/* RIGHT: Metrics & Weights */}
+        
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Metrics Cards */}
+          
           <div style={panelStyle}>
             <div style={labelStyle}>Metrics</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
@@ -826,7 +804,7 @@ export default function NeuralNetworkLab() {
             </div>
           </div>
 
-          {/* Confusion Matrix */}
+          
           <div style={panelStyle}>
             <div style={labelStyle}>Confusion Matrix</div>
             <div style={{ display: "flex", justifyContent: "center" }}>
@@ -836,7 +814,7 @@ export default function NeuralNetworkLab() {
             </div>
           </div>
 
-          {/* Hyperparameters */}
+          
           <div style={panelStyle}>
             <div style={labelStyle}>Hyperparameters</div>
             <div style={{ fontSize: 10, lineHeight: 1.8 }}>
@@ -859,7 +837,7 @@ export default function NeuralNetworkLab() {
             </div>
           </div>
 
-          {/* Weight Matrix */}
+          
           <div style={{ ...panelStyle, maxHeight: 220, overflowY: "auto" }}>
             <div style={labelStyle}>Weight Matrices</div>
             {netRef.current ? <WeightMatrix network={netRef.current} /> : null}

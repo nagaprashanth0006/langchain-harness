@@ -11,7 +11,7 @@ services:
     ports:
       - 8501:8501
     volumes:
-      - ./vector-data:/app/vector-data
+      - ./vector-store:/app/vector-store
       - ./data:/app/data
     restart: unless-stopped
     networks:
@@ -27,14 +27,6 @@ services:
       - ./vector-data:/root/vector-data:ro
       - ./data:/root/data:ro
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
-
     healthcheck:
       test: ["CMD", "ollama", "ps"]
       interval: 5s
@@ -45,7 +37,7 @@ services:
 
 volumes:
   ollama-models:
-    external: true
+
 
 networks:
   ollama-net:

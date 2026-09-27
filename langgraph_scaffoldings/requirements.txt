@@ -10,7 +10,7 @@ beautifulsoup4
 uvicorn
 streamlit
 chromadb
-dotenv
+python-dotenv
 selenium
 tabulate
 langgraph

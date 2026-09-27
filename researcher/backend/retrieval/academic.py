@@ -1,4 +1,5 @@
-"""Academic API retrievers: PubMed, Semantic Scholar, OpenAlex, Crossref, arXiv."""
+"Academic API retrievers: PubMed, Semantic Scholar, OpenAlex, Crossref, arXiv."
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = 15
 
 
-async def _get(url: str, params: Dict = None, headers: Dict = None) -> Optional[Dict | str]:
+async def _get(
+    url: str, params: Dict = None, headers: Dict = None
+) -> Optional[Dict | str]:
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.get(url, params=params, headers=headers or {})
@@ -29,8 +32,6 @@ async def _get(url: str, params: Dict = None, headers: Dict = None) -> Optional[
         logger.debug(f"GET {url} failed: {e}")
     return None
 
-
-# ── PubMed ─────────────────────────────────────────────────────────────────
 
 async def _pubmed_search(query: str, max_results: int = 5) -> List[str]:
     cfg = get_config()
@@ -86,7 +87,9 @@ async def _pubmed_fetch(pmids: List[str]) -> List[Source]:
                 title=title,
                 text=abstract,
                 url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-                type=SourceType(pub_type) if pub_type in SourceType._value2member_map_ else SourceType.PEER_REVIEWED,
+                type=SourceType(pub_type)
+                if pub_type in SourceType._value2member_map_
+                else SourceType.PEER_REVIEWED,
             )
             sources.append(src)
     except ET.ParseError as e:
@@ -98,8 +101,6 @@ async def pubmed_retrieve(query: str, max_results: int = 5) -> List[Source]:
     pmids = await _pubmed_search(query, max_results)
     return await _pubmed_fetch(pmids)
 
-
-# ── Semantic Scholar ────────────────────────────────────────────────────────
 
 async def semantic_scholar_retrieve(query: str, max_results: int = 5) -> List[Source]:
     cfg = get_config()
@@ -132,8 +133,6 @@ async def semantic_scholar_retrieve(query: str, max_results: int = 5) -> List[So
     return sources
 
 
-# ── OpenAlex ────────────────────────────────────────────────────────────────
-
 async def openalexs_retrieve(query: str, max_results: int = 5) -> List[Source]:
     cfg = get_config()
     base = cfg["datasources"]["openalexs"]["base_url"]
@@ -161,7 +160,9 @@ async def openalexs_retrieve(query: str, max_results: int = 5) -> List[Source]:
             title=title,
             text=abstract,
             url=url,
-            type=SourceType.PEER_REVIEWED if "journal" in work_type else SourceType.ARTICLE,
+            type=SourceType.PEER_REVIEWED
+            if "journal" in work_type
+            else SourceType.ARTICLE,
         )
         sources.append(src)
     return sources
@@ -177,8 +178,6 @@ def _reconstruct_abstract(inverted_index: Dict[str, List[int]]) -> str:
     pairs.sort()
     return " ".join(w for _, w in pairs)
 
-
-# ── Crossref ────────────────────────────────────────────────────────────────
 
 async def crossref_retrieve(query: str, max_results: int = 5) -> List[Source]:
     cfg = get_config()
@@ -210,8 +209,6 @@ async def crossref_retrieve(query: str, max_results: int = 5) -> List[Source]:
         sources.append(src)
     return sources
 
-
-# ── arXiv ───────────────────────────────────────────────────────────────────
 
 async def arxiv_retrieve(query: str, max_results: int = 5) -> List[Source]:
     cfg = get_config()
@@ -246,8 +243,6 @@ async def arxiv_retrieve(query: str, max_results: int = 5) -> List[Source]:
         logger.warning(f"arXiv parse error: {e}")
     return sources
 
-
-# ── Dispatcher ──────────────────────────────────────────────────────────────
 
 _RETRIEVERS = {
     "pubmed": pubmed_retrieve,

@@ -1,9 +1,4 @@
-"""
-Shared domain models for the RAG pipeline.
-
-Using dataclasses (fast, zero-dep) for internal data flow.
-Pydantic models are used at API boundaries (server.py).
-"""
+"Shared domain models for the RAG pipeline."
 
 from __future__ import annotations
 
@@ -12,43 +7,40 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 
-# ---------------------------------------------------------------------------
-# Core domain objects
-# ---------------------------------------------------------------------------
-
 @dataclass
 class Document:
     """A raw document loaded from disk / upload."""
+
     content: str
-    source: str                            # File path or URL
+    source: str
     metadata: dict[str, Any] = field(default_factory=dict)
     doc_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    # Optional structured fields extracted during loading
     title: Optional[str] = None
-    page_number: Optional[int] = None      # Meaningful for PDFs
+    page_number: Optional[int] = None
     total_pages: Optional[int] = None
 
 
 @dataclass
 class Chunk:
     """A text chunk derived from a Document, ready for embedding."""
+
     content: str
-    doc_id: str                            # Parent document
-    source: str                            # Propagated from Document
+    doc_id: str
+    source: str
     metadata: dict[str, Any] = field(default_factory=dict)
     chunk_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    # Set after embedding
     embedding: Optional[list[float]] = None
 
 
 @dataclass
 class ScoredChunk:
     """A chunk returned from retrieval with a relevance score."""
+
     chunk: Chunk
-    score: float                           # Higher = more relevant
-    retrieval_method: str = "dense"        # "dense" | "sparse" | "hybrid"
+    score: float
+    retrieval_method: str = "dense"
 
     def __lt__(self, other: "ScoredChunk") -> bool:
         return self.score < other.score
@@ -57,6 +49,7 @@ class ScoredChunk:
 @dataclass
 class RAGResponse:
     """Final answer produced by the RAG pipeline."""
+
     answer: str
     query: str
     sources: list[ScoredChunk]

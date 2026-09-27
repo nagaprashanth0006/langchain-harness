@@ -11,24 +11,16 @@ from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
 
 from typing import Annotated, List, Any, Dict, Optional
 
-#%% INIT
+
 checkpointer = MemorySaver()
 llm = ChatOllama(model="llama3.1:8b-instruct-q4_K_M", temperature=0.2, num_ctx=4096)
 
 
-#%% TOOLS
-
 tools = [DuckDuckGoSearchRun()]
 
-#%% STATE
+
 class AgentState(StateGraph):
     message: List[str]
 
 
-#%%  NODES
-
-
-#%% GRAPH
 graph = StateGraph()
-
-#%% EXECUTE

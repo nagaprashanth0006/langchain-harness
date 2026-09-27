@@ -3,10 +3,30 @@ from langchain_ollama.chat_models import ChatOllama
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
+
 @tool
 def calc(expression: str) -> str:
     """Safely evaluate a basic arithmetic expression like '2 + 2*10'."""
-    allowed = {"+", "-", "*", "/", "(", ")", " ", ".", "0","1","2","3","4","5","6","7","8","9"}
+    allowed = {
+        "+",
+        "-",
+        "*",
+        "/",
+        "(",
+        ")",
+        " ",
+        ".",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+    }
     if not set(expression).issubset(allowed):
         return "Only basic numbers and + - * / ( ) are allowed."
     try:
@@ -14,10 +34,12 @@ def calc(expression: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 LOCAL_KB: Dict[str, str] = {
     "uim": "Oracle UIM is an inventory management system used in OSS for telecom.",
     "logsphere": "LogSphere is our local log-intelligence project with RAG + agents.",
 }
+
 
 @tool
 def kb_lookup(query: str) -> str:
@@ -28,7 +50,9 @@ def kb_lookup(query: str) -> str:
             return v
     return "No local fact found. Add more entries to LOCAL_KB."
 
+
 from langchain_experimental.tools.python.tool import PythonREPLTool
+
 py_repl = PythonREPLTool()
 
 tools = [calc, kb_lookup, py_repl]

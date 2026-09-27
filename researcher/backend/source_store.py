@@ -1,4 +1,5 @@
-"""Content-addressed source store with SQLite backend and TTL caching."""
+"Content-addressed source store with SQLite backend and TTL caching."
+
 from __future__ import annotations
 import hashlib
 import json
@@ -153,6 +154,7 @@ async def evict_expired() -> int:
 
 async def save_embedding(source_id: str, embedding: List[float]) -> None:
     import struct
+
     blob = struct.pack(f"{len(embedding)}f", *embedding)
     db = _db_path()
     async with aiosqlite.connect(db) as conn:
@@ -165,6 +167,7 @@ async def save_embedding(source_id: str, embedding: List[float]) -> None:
 
 async def load_embedding(source_id: str) -> Optional[List[float]]:
     import struct
+
     db = _db_path()
     async with aiosqlite.connect(db) as conn:
         async with conn.execute(

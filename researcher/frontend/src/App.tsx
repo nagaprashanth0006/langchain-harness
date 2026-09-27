@@ -58,7 +58,6 @@ export default function App() {
             progress: [...prev.progress, event as never],
           };
         case "route_complete": {
-          // Update the last "route" progress entry in-place so RouteTag renders under it
           const re = event as RouteEvent;
           const updatedProgress = [...prev.progress];
           const lastRouteIdx = updatedProgress.map(p => p.step).lastIndexOf("route");
@@ -139,7 +138,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      {/* Header */}
+      
       <header className="border-b border-surface-border bg-surface-raised/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -159,9 +158,9 @@ export default function App() {
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
-        {/* Input section */}
+        
         <div className="space-y-4">
-          {/* Mode + sliders row */}
+          
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
             <ModeSwitch mode={mode} onChange={setMode} disabled={isRunning} />
             {mode === "research" && (
@@ -177,7 +176,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Query box */}
+          
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -214,7 +213,7 @@ export default function App() {
           </p>
         </div>
 
-        {/* Suggestions (idle only) */}
+        
         {queryState.status === "idle" && !query && (
           <div className="space-y-2 fade-in">
             <p className="text-xs text-gray-600 font-medium uppercase tracking-wider">Try asking</p>
@@ -233,12 +232,12 @@ export default function App() {
           </div>
         )}
 
-        {/* Progress feed */}
+        
         {(isRunning || queryState.progress.length > 0) && queryState.status !== "done" && (
           <ProgressFeed state={queryState} />
         )}
 
-        {/* Setup warning (Ollama not running) */}
+        
         {queryState.warning && (
           <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-200 fade-in">
             <strong className="text-amber-300">Setup required:</strong>{" "}
@@ -246,14 +245,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Error */}
+        
         {queryState.status === "error" && queryState.error && (
           <div className="bg-red-900/20 border border-red-700/40 rounded-xl px-4 py-3 text-sm text-red-300 fade-in">
             <strong>Error:</strong> {queryState.error}
           </div>
         )}
 
-        {/* Result */}
+        
         <ResultView state={queryState} />
       </main>
 

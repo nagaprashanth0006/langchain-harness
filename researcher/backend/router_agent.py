@@ -1,4 +1,5 @@
-"""Query router — dedicated classifier pass."""
+"Query router — dedicated classifier pass."
+
 from __future__ import annotations
 import json
 import logging
@@ -63,7 +64,14 @@ _EXAMPLES = [
         "result": {
             "category": "empirical_factual",
             "secondary_category": None,
-            "eligible_sources": ["ddg", "pubmed", "semantic_scholar", "openalexs", "crossref", "arxiv"],
+            "eligible_sources": [
+                "ddg",
+                "pubmed",
+                "semantic_scholar",
+                "openalexs",
+                "crossref",
+                "arxiv",
+            ],
             "judge_rubric": "corroboration",
             "sensitivity": False,
             "reasoning": "Scientific research query — all academic sources appropriate; factual corroboration matters",
@@ -74,7 +82,8 @@ _EXAMPLES = [
 
 def _build_messages(query: str) -> List[Dict[str, str]]:
     examples_text = "\n".join(
-        f"Query: {ex['query']}\nResponse: {json.dumps(ex['result'])}" for ex in _EXAMPLES
+        f"Query: {ex['query']}\nResponse: {json.dumps(ex['result'])}"
+        for ex in _EXAMPLES
     )
     return [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -102,9 +111,31 @@ def _parse_response(raw: str) -> Dict[str, Any]:
 
 def _fallback_classify(query: str) -> Dict[str, Any]:
     q_lower = query.lower()
-    medical_terms = {"drug", "medication", "symptom", "disease", "diagnosis", "treatment", "dose", "dosage", "medicine", "therapy", "side effect", "clinical"}
+    medical_terms = {
+        "drug",
+        "medication",
+        "symptom",
+        "disease",
+        "diagnosis",
+        "treatment",
+        "dose",
+        "dosage",
+        "medicine",
+        "therapy",
+        "side effect",
+        "clinical",
+    }
     legal_terms = {"law", "legal", "regulation", "statute", "court", "contract"}
-    academic_terms = {"research", "study", "paper", "journal", "crispr", "molecule", "gene", "protein"}
+    academic_terms = {
+        "research",
+        "study",
+        "paper",
+        "journal",
+        "crispr",
+        "molecule",
+        "gene",
+        "protein",
+    }
     personal_terms = {"i ", "my ", "should i", "am i", "will i", "can i", "help me"}
 
     has_medical = any(t in q_lower for t in medical_terms)
@@ -115,7 +146,9 @@ def _fallback_classify(query: str) -> Dict[str, Any]:
     if has_personal and (has_medical or has_legal):
         return {
             "category": "personal_sensitive",
-            "secondary_category": "empirical_factual" if has_medical else "procedural_reference",
+            "secondary_category": "empirical_factual"
+            if has_medical
+            else "procedural_reference",
             "eligible_sources": ["ddg"],
             "judge_rubric": "sensitivity_balanced",
             "sensitivity": True,
@@ -157,7 +190,9 @@ async def route_query(query: str) -> RouterOutput:
     messages = _build_messages(query)
 
     try:
-        raw = await client.chat(messages, temperature=0.0, max_tokens=512, json_mode=True)
+        raw = await client.chat(
+            messages, temperature=0.0, max_tokens=512, json_mode=True
+        )
         data = _parse_response(raw)
     except Exception as e:
         logger.warning(f"Router LLM failed ({e}), using fallback classifier")

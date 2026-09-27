@@ -14,15 +14,18 @@ os.environ.pop("HTTPS_PROXY", None)
 os.environ["NO_PROXY"] = "127.0.0.1,localhost,::1"
 os.environ["no_proxy"] = "127.0.0.1,localhost,::1"
 
+
 class AgentState(TypedDict, total=False):
     input: str
     messages: List[Any]
     outcome: Optional[str]
 
+
 @tool
 def multiply(a: int, b: int) -> int:
     """Takes two numbers a, b and returns their product"""
     return a * b
+
 
 @tool
 def grep(text: str, needle: str) -> Dict[str, Any]:
@@ -31,6 +34,7 @@ def grep(text: str, needle: str) -> Dict[str, Any]:
     hits = [i for i, ln in enumerate(lines, 1) if needle in ln]
     return {"count": len(hits), "lines": hits}
 
+
 def build_llm(model_name: str):
     llm = ChatOllama(
         model=model_name,
@@ -38,10 +42,11 @@ def build_llm(model_name: str):
         streaming=False,
         timeout=120,
         num_ctx=2048,
-        keep_alive="5m"
+        keep_alive="5m",
     )
     llm.streaming = False
     return llm
+
 
 def build_agent(model_name: str, tools: List[Any]):
     llm = build_llm(model_name)
@@ -51,6 +56,7 @@ def build_agent(model_name: str, tools: List[Any]):
         pass
     memory = MemorySaver()
     return create_react_agent(llm, tools, checkpointer=memory)
+
 
 def run_agent_once(agent, user_prompt: str) -> Dict[str, Any]:
     cfg = {"configurable": {"thread_id": "abc123"}}
@@ -65,6 +71,7 @@ def run_agent_once(agent, user_prompt: str) -> Dict[str, Any]:
             time.sleep(0.6)
     if err:
         raise err
+
 
 tools = [multiply, grep]
 agent = build_agent("llama3.1:8b-instruct-q4_K_M", tools)

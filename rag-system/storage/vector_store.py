@@ -1,50 +1,4 @@
-"""
-Vector store backends for persisting and querying chunk embeddings.
-
-Vector store comparison
-────────────────────────
-ChromaDB (default)
-  Local, embedded, zero-infra. Persists to disk via DuckDB+Parquet.
-  Supports metadata filtering. Good up to ~1M vectors on a single node.
-  Caveat: no horizontal scaling; single writer. Use for ≤1M chunk corpora.
-
-pgvector (PostgreSQL extension)
-  SQL-native vector storage; ACID, joins, standard tooling.
-  IVFFlat index: fast approximate search. HNSW index: better recall (v0.5+).
-  Best when: you already run Postgres and want one fewer service.
-  Caveat: must tune index lists/probes parameters for your dataset size.
-
-Pinecone
-  Fully managed, scales to billions of vectors, multi-tenant namespaces.
-  Supports metadata filtering, hybrid search natively.
-  Best when: large corpus, multi-tenant SaaS, don't want ops burden.
-
-Weaviate
-  Open-source, supports hybrid (BM25 + vector), GraphQL API.
-  Good for: knowledge graphs, cross-referencing object types.
-
-Qdrant
-  High-performance Rust-based store; excellent filtering, payload indexing.
-  On-premise or managed cloud. Strong HNSW + quantization support.
-
-Milvus / Zilliz
-  Enterprise-grade, columnar storage, GPU indexing.
-  Best when: >100M vectors, need GPU-accelerated search.
-
-Redis (with RediSearch / RedisVSS)
-  In-memory; lowest latency. Use when sub-millisecond search is required.
-  Caveat: cost of RAM at scale; persistence is secondary.
-
-Production indexing tips
-────────────────────────
-1. Use HNSW index for best recall/latency trade-off (>100K vectors).
-2. IVFFlat is faster to build but lower recall; tune nlist = sqrt(N).
-3. Store rich metadata (source, page, date, doc_id) — used for filtering.
-4. Separate collections per tenant/namespace to avoid cross-contamination.
-5. Build indexes offline (batch ingest) before switching traffic.
-6. Monitor p99 query latency; alert at >200 ms for interactive RAG.
-7. Run periodic compaction (Chroma / Milvus) to reclaim disk space.
-"""
+"Vector store backends for persisting and querying chunk embeddings."
 
 from __future__ import annotations
 
@@ -58,12 +12,7 @@ from models import Chunk, ScoredChunk
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Base interface
-# ---------------------------------------------------------------------------
-
 class BaseVectorStore(ABC):
-
     @abstractmethod
     def upsert(self, chunks: list[Chunk]) -> None:
         """Store chunks with their embeddings. Idempotent on chunk_id."""
@@ -101,10 +50,6 @@ class BaseVectorStore(ABC):
         return self.query(query_embedding, top_k=top_k)
 
 
-# ---------------------------------------------------------------------------
-# In-Memory (testing / CI)
-# ---------------------------------------------------------------------------
-
 class InMemoryVectorStore(BaseVectorStore):
     """
     Brute-force cosine search over an in-memory list.
@@ -136,12 +81,17 @@ class InMemoryVectorStore(BaseVectorStore):
                 if not all(chunk.metadata.get(k) == v for k, v in filter.items()):
                     continue
             emb = np.array(chunk.embedding)
-            # Cosine similarity (embeddings assumed normalized)
-            score = float(np.dot(q, emb) / (np.linalg.norm(q) * np.linalg.norm(emb) + 1e-9))
+
+            score = float(
+                np.dot(q, emb) / (np.linalg.norm(q) * np.linalg.norm(emb) + 1e-9)
+            )
             scores.append((score, chunk))
 
         scores.sort(key=lambda x: x[0], reverse=True)
-        return [ScoredChunk(chunk=c, score=s, retrieval_method="dense") for s, c in scores[:top_k]]
+        return [
+            ScoredChunk(chunk=c, score=s, retrieval_method="dense")
+            for s, c in scores[:top_k]
+        ]
 
     def delete(self, chunk_ids: list[str]) -> None:
         for cid in chunk_ids:
@@ -156,22 +106,8 @@ class InMemoryVectorStore(BaseVectorStore):
         return len(self._chunks)
 
 
-# ---------------------------------------------------------------------------
-# ChromaDB
-# ---------------------------------------------------------------------------
-
 class ChromaVectorStore(BaseVectorStore):
-    """
-    Local persistent vector store backed by ChromaDB.
-
-    ChromaDB uses DuckDB+Parquet for persistence and an HNSW index (hnswlib).
-    Supports metadata filtering with $eq/$in/$gte operators.
-
-    Production scaling limits:
-    - ~1M vectors before query latency degrades (single node).
-    - Single writer; reads can be concurrent.
-    - Upgrade path: swap to Qdrant/Weaviate for >1M vectors.
-    """
+    "Local persistent vector store backed by ChromaDB."
 
     def __init__(
         self,
@@ -198,7 +134,9 @@ class ChromaVectorStore(BaseVectorStore):
         )
         logger.info(
             "ChromaDB initialized: dir=%s collection=%s count=%d",
-            persist_dir, collection_name, self._collection.count(),
+            persist_dir,
+            collection_name,
+            self._collection.count(),
         )
 
     def upsert(self, chunks: list[Chunk]) -> None:
@@ -211,7 +149,6 @@ class ChromaVectorStore(BaseVectorStore):
         metadatas = []
 
         for c in chunks:
-            # Chroma metadata values must be str/int/float/bool
             meta = {
                 k: (str(v) if not isinstance(v, (str, int, float, bool)) else v)
                 for k, v in c.metadata.items()
@@ -247,7 +184,7 @@ class ChromaVectorStore(BaseVectorStore):
             chunk_id = results["ids"][0][i]
             content = results["documents"][0][i]
             meta = results["metadatas"][0][i]
-            # Chroma returns cosine distance [0, 2]; convert to similarity
+
             distance = results["distances"][0][i]
             score = 1.0 - (distance / 2.0)
 
@@ -257,9 +194,13 @@ class ChromaVectorStore(BaseVectorStore):
                 doc_id=meta.pop("doc_id", ""),
                 source=meta.pop("source", ""),
                 metadata=meta,
-                embedding=results["embeddings"][0][i] if results.get("embeddings") else None,
+                embedding=results["embeddings"][0][i]
+                if results.get("embeddings")
+                else None,
             )
-            scored.append(ScoredChunk(chunk=chunk, score=score, retrieval_method="dense"))
+            scored.append(
+                ScoredChunk(chunk=chunk, score=score, retrieval_method="dense")
+            )
 
         return scored
 
@@ -274,34 +215,20 @@ class ChromaVectorStore(BaseVectorStore):
         return self._collection.count()
 
 
-# ---------------------------------------------------------------------------
-# pgvector (PostgreSQL)
-# ---------------------------------------------------------------------------
-
 class PgVectorStore(BaseVectorStore):
-    """
-    PostgreSQL + pgvector extension for vector storage.
+    "PostgreSQL + pgvector extension for vector storage."
 
-    Setup:
-        CREATE EXTENSION IF NOT EXISTS vector;
-        (The table is auto-created on first use via SQLAlchemy.)
-
-    Index options:
-        IVFFlat: CREATE INDEX ON chunks USING ivfflat (embedding vector_cosine_ops)
-                 WITH (lists = 100);  -- tune lists = sqrt(row_count)
-        HNSW:    CREATE INDEX ON chunks USING hnsw (embedding vector_cosine_ops)
-                 WITH (m = 16, ef_construction = 64);  -- better recall, slower build
-
-    Production caveat: run VACUUM ANALYZE after bulk inserts to update planner stats.
-    """
-
-    def __init__(self, connection_string: str | None = None, embedding_dim: int | None = None):
+    def __init__(
+        self, connection_string: str | None = None, embedding_dim: int | None = None
+    ):
         try:
             from sqlalchemy import create_engine, text, Column, String, JSON, Integer
             from sqlalchemy.orm import sessionmaker, DeclarativeBase
             from pgvector.sqlalchemy import Vector
         except ImportError:
-            raise ImportError("Install: pip install pgvector psycopg[binary] sqlalchemy")
+            raise ImportError(
+                "Install: pip install pgvector psycopg[binary] sqlalchemy"
+            )
 
         conn_str = connection_string or settings.pgvector_connection_string
         dim = embedding_dim or settings.embedding_dim
@@ -313,9 +240,11 @@ class PgVectorStore(BaseVectorStore):
 
     def _ensure_table(self) -> None:
         from sqlalchemy import text
+
         with self._engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text(f"""
+            conn.execute(
+                text(f"""
                 CREATE TABLE IF NOT EXISTS rag_chunks (
                     chunk_id    TEXT PRIMARY KEY,
                     doc_id      TEXT NOT NULL,
@@ -324,32 +253,39 @@ class PgVectorStore(BaseVectorStore):
                     metadata    JSONB DEFAULT '{{}}',
                     embedding   vector({self._dim})
                 )
-            """))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS rag_chunks_source_idx ON rag_chunks (source)"
-            ))
+            """)
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS rag_chunks_source_idx ON rag_chunks (source)"
+                )
+            )
             conn.commit()
         logger.info("pgvector table ensured (dim=%d)", self._dim)
 
     def upsert(self, chunks: list[Chunk]) -> None:
         from sqlalchemy import text
+
         with self._Session() as session:
             for c in chunks:
-                session.execute(text("""
+                session.execute(
+                    text("""
                     INSERT INTO rag_chunks (chunk_id, doc_id, source, content, metadata, embedding)
                     VALUES (:chunk_id, :doc_id, :source, :content, :metadata, :embedding)
                     ON CONFLICT (chunk_id) DO UPDATE
                         SET content=EXCLUDED.content,
                             embedding=EXCLUDED.embedding,
                             metadata=EXCLUDED.metadata
-                """), {
-                    "chunk_id": c.chunk_id,
-                    "doc_id": c.doc_id,
-                    "source": c.source,
-                    "content": c.content,
-                    "metadata": c.metadata,
-                    "embedding": c.embedding,
-                })
+                """),
+                    {
+                        "chunk_id": c.chunk_id,
+                        "doc_id": c.doc_id,
+                        "source": c.source,
+                        "content": c.content,
+                        "metadata": c.metadata,
+                        "embedding": c.embedding,
+                    },
+                )
             session.commit()
 
     def query(
@@ -398,25 +334,30 @@ class PgVectorStore(BaseVectorStore):
 
     def delete(self, chunk_ids: list[str]) -> None:
         from sqlalchemy import text
+
         with self._Session() as session:
-            session.execute(text("DELETE FROM rag_chunks WHERE chunk_id = ANY(:ids)"), {"ids": chunk_ids})
+            session.execute(
+                text("DELETE FROM rag_chunks WHERE chunk_id = ANY(:ids)"),
+                {"ids": chunk_ids},
+            )
             session.commit()
 
     def delete_by_source(self, source: str) -> None:
         from sqlalchemy import text
+
         with self._Session() as session:
-            session.execute(text("DELETE FROM rag_chunks WHERE source = :source"), {"source": source})
+            session.execute(
+                text("DELETE FROM rag_chunks WHERE source = :source"),
+                {"source": source},
+            )
             session.commit()
 
     def count(self) -> int:
         from sqlalchemy import text
+
         with self._Session() as session:
             return session.execute(text("SELECT COUNT(*) FROM rag_chunks")).scalar()
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def get_vector_store(store_type: VectorStoreType | None = None) -> BaseVectorStore:
     stype = store_type or settings.vector_store_type

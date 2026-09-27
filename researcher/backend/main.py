@@ -1,4 +1,5 @@
-"""FastAPI application — entry point for the research assistant backend."""
+"FastAPI application — entry point for the research assistant backend."
+
 from __future__ import annotations
 import asyncio
 import json
@@ -118,42 +119,54 @@ async def _run_query(query_id: str, req: QueryRequest, queue: asyncio.Queue) -> 
     global _topology
     try:
         if _topology is None:
-            await queue.put({
-                "type": "progress",
-                "step": "init",
-                "message": "Probing available AI backends...",
-            })
+            await queue.put(
+                {
+                    "type": "progress",
+                    "step": "init",
+                    "message": "Probing available AI backends...",
+                }
+            )
             _topology = await probe_capabilities()
 
-        await queue.put({
-            "type": "progress",
-            "step": "route",
-            "message": "Classifying query...",
-        })
+        await queue.put(
+            {
+                "type": "progress",
+                "step": "route",
+                "message": "Classifying query...",
+            }
+        )
 
         router_output = await route_query(req.query)
 
-        await queue.put({
-            "type": "route_complete",
-            "category": router_output.category.value,
-            "secondary": router_output.secondary_category.value if router_output.secondary_category else None,
-            "sensitivity": router_output.sensitivity,
-            "eligible_sources": router_output.eligible_sources,
-            "rubric": router_output.judge_rubric,
-            "reasoning": router_output.reasoning,
-        })
+        await queue.put(
+            {
+                "type": "route_complete",
+                "category": router_output.category.value,
+                "secondary": router_output.secondary_category.value
+                if router_output.secondary_category
+                else None,
+                "sensitivity": router_output.sensitivity,
+                "eligible_sources": router_output.eligible_sources,
+                "rubric": router_output.judge_rubric,
+                "reasoning": router_output.reasoning,
+            }
+        )
 
         if not _topology._ollama_reachable:
             synth_model = _topology.synthesis_backend.get("model", "?")
-            synth_url = _topology.synthesis_backend.get("base_url", "http://localhost:11434")
-            await queue.put({
-                "type": "warning",
-                "message": (
-                    f"Ollama is not running at {synth_url}. "
-                    f"Retrieval will work but synthesis will fail. "
-                    f"To fix: run `ollama serve` then `ollama pull {synth_model}`."
-                ),
-            })
+            synth_url = _topology.synthesis_backend.get(
+                "base_url", "http://localhost:11434"
+            )
+            await queue.put(
+                {
+                    "type": "warning",
+                    "message": (
+                        f"Ollama is not running at {synth_url}. "
+                        f"Retrieval will work but synthesis will fail. "
+                        f"To fix: run `ollama serve` then `ollama pull {synth_model}`."
+                    ),
+                }
+            )
 
         if req.mode == OperationMode.NORMAL:
             await run_normal(req.query, router_output, _topology, queue)
@@ -176,7 +189,9 @@ async def _run_query(query_id: str, req: QueryRequest, queue: asyncio.Queue) -> 
                     "new_sources": it.new_sources,
                     "quality": it.quality,
                     "gap_list": it.gap_list[:5],
-                    "quorum_passed": it.quorum_result.passed if it.quorum_result else False,
+                    "quorum_passed": it.quorum_result.passed
+                    if it.quorum_result
+                    else False,
                 }
                 for it in final_state.get("iterations", [])
             ]
@@ -184,19 +199,23 @@ async def _run_query(query_id: str, req: QueryRequest, queue: asyncio.Queue) -> 
             quality_history = final_state.get("quality_history", [])
             final_confidence = quality_history[-1] if quality_history else 0.0
 
-            await queue.put({
-                "type": "result",
-                "answer": final_state.get("answer", ""),
-                "sources": [s.to_dict() for s in final_state.get("sources", [])[:20]],
-                "iterations": iterations_data,
-                "final_confidence": final_confidence,
-                "stop_reason": final_state.get("stop_reason", ""),
-                "contested_positions": final_state.get("contested_positions", []),
-                "elapsed": elapsed,
-                "mode": "research",
-                "sensitivity": router_output.sensitivity,
-                "category": router_output.category.value,
-            })
+            await queue.put(
+                {
+                    "type": "result",
+                    "answer": final_state.get("answer", ""),
+                    "sources": [
+                        s.to_dict() for s in final_state.get("sources", [])[:20]
+                    ],
+                    "iterations": iterations_data,
+                    "final_confidence": final_confidence,
+                    "stop_reason": final_state.get("stop_reason", ""),
+                    "contested_positions": final_state.get("contested_positions", []),
+                    "elapsed": elapsed,
+                    "mode": "research",
+                    "sensitivity": router_output.sensitivity,
+                    "category": router_output.category.value,
+                }
+            )
 
     except Exception as e:
         logger.exception(f"Query {query_id} failed")

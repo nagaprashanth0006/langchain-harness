@@ -1,4 +1,5 @@
-"""Multi-judge quorum panel with structured verdicts."""
+"Multi-judge quorum panel with structured verdicts."
+
 from __future__ import annotations
 import asyncio
 import json
@@ -104,7 +105,9 @@ async def _run_judge(
     ]
 
     try:
-        raw = await client.chat(messages, temperature=0.1, max_tokens=1024, json_mode=True)
+        raw = await client.chat(
+            messages, temperature=0.1, max_tokens=1024, json_mode=True
+        )
         raw = raw.strip()
         if raw.startswith("```"):
             lines = raw.split("\n")
@@ -133,10 +136,9 @@ async def run_quorum_whole_answer(
     threshold: float = 0.75,
     min_judges: int = 3,
 ) -> QuorumResult:
-    active_judges = judge_pool[:max(min_judges, len(judge_pool))]
+    active_judges = judge_pool[: max(min_judges, len(judge_pool))]
     tasks = [
-        _run_judge(j, query, answer, sources, rubric, "answer")
-        for j in active_judges
+        _run_judge(j, query, answer, sources, rubric, "answer") for j in active_judges
     ]
     verdicts_raw = await asyncio.gather(*tasks, return_exceptions=True)
     verdicts = [v for v in verdicts_raw if isinstance(v, JudgeVerdict)]
@@ -200,7 +202,7 @@ async def run_quorum_per_claim(
     min_judges: int = 3,
 ) -> List[QuorumResult]:
     results = []
-    active_judges = judge_pool[:max(min_judges, len(judge_pool))]
+    active_judges = judge_pool[: max(min_judges, len(judge_pool))]
 
     for claim in claims:
         tasks = [
@@ -211,16 +213,18 @@ async def run_quorum_per_claim(
         verdicts = [v for v in verdicts_raw if isinstance(v, JudgeVerdict)]
 
         if not verdicts:
-            results.append(QuorumResult(
-                target=claim.id,
-                passed=False,
-                agreement_ratio=0.0,
-                composite_quality=0.0,
-                contested=False,
-                verdicts=[],
-                gap_list=["Judges unavailable"],
-                mean_score=0.0,
-            ))
+            results.append(
+                QuorumResult(
+                    target=claim.id,
+                    passed=False,
+                    agreement_ratio=0.0,
+                    composite_quality=0.0,
+                    contested=False,
+                    verdicts=[],
+                    gap_list=["Judges unavailable"],
+                    mean_score=0.0,
+                )
+            )
             continue
 
         scores = [v.score for v in verdicts]
@@ -236,15 +240,17 @@ async def run_quorum_per_claim(
         coverage = min(1.0, len(claim.cited_source_ids) / 2.0)
         composite = coverage * mean_score
 
-        results.append(QuorumResult(
-            target=claim.id,
-            passed=passed,
-            agreement_ratio=agreement_ratio,
-            composite_quality=composite,
-            contested=contested,
-            verdicts=verdicts,
-            gap_list=gap_list,
-            mean_score=mean_score,
-        ))
+        results.append(
+            QuorumResult(
+                target=claim.id,
+                passed=passed,
+                agreement_ratio=agreement_ratio,
+                composite_quality=composite,
+                contested=contested,
+                verdicts=verdicts,
+                gap_list=gap_list,
+                mean_score=mean_score,
+            )
+        )
 
     return results

@@ -85,7 +85,6 @@ export interface ResultEvent extends SSEEvent {
   mode: OperationMode;
   sensitivity: boolean;
   category: QueryCategory;
-  // research-mode extras
   iterations?: IterationResult[];
   final_confidence?: number;
   stop_reason?: string;

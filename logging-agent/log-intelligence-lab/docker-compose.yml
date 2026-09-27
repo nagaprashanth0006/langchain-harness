@@ -1,4 +1,3 @@
-version: '3.9'
 
 x-common-labels: &common_labels
   logging: "promtail"
@@ -219,4 +218,3 @@ services:
 
 
 
-# docker-compose down && docker system prune --volumes --force && docker-compose up -d --build

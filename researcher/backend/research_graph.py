@@ -1,4 +1,5 @@
-"""LangGraph state machine for research mode."""
+"LangGraph state machine for research mode."
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -10,7 +11,12 @@ from langgraph.graph import END, START, StateGraph
 from .capability_resolver import ResolvedTopology
 from .config import get_slider_params
 from .models import (
-    Claim, ClaimStatus, IterationResult, QuorumResult, RouterOutput, Source
+    Claim,
+    ClaimStatus,
+    IterationResult,
+    QuorumResult,
+    RouterOutput,
+    Source,
 )
 from .quorum import run_quorum_per_claim, run_quorum_whole_answer
 from .retrieval.academic import retrieve_from_academic
@@ -31,7 +37,7 @@ class ResearchState(TypedDict):
 
     queries: List[str]
     sources: List[Source]
-    source_ids: List[str]          # list (deduped by logic, not set)
+    source_ids: List[str]
     claims: List[Claim]
     answer: str
 
@@ -59,14 +65,16 @@ def _emit(state: ResearchState, event_type: str, **data) -> None:
     state["events"].append({"type": event_type, **data})
 
 
-def _build_initial_queries(query: str, router_output: RouterOutput, depth: int) -> List[str]:
+def _build_initial_queries(
+    query: str, router_output: RouterOutput, depth: int
+) -> List[str]:
     base_queries = [query]
     if depth >= 3:
         base_queries.append(f"{query} systematic review")
         base_queries.append(f"{query} recent studies")
     if depth >= 4:
         base_queries.append(f"{query} meta-analysis")
-    return base_queries[:max(1, depth)]
+    return base_queries[: max(1, depth)]
 
 
 async def retrieve_node(state: ResearchState) -> Dict[str, Any]:
@@ -75,9 +83,12 @@ async def retrieve_node(state: ResearchState) -> Dict[str, Any]:
     queries = state["queries"]
     existing_ids = set(state["source_ids"])
 
-    _emit(state, "progress",
-          step="retrieve",
-          message=f"Searching {len(queries)} queries across {len(eligible)} source types...")
+    _emit(
+        state,
+        "progress",
+        step="retrieve",
+        message=f"Searching {len(queries)} queries across {len(eligible)} source types...",
+    )
 
     all_new: List[Source] = []
 
@@ -89,15 +100,21 @@ async def retrieve_node(state: ResearchState) -> Dict[str, Any]:
     academic_eligible = [s for s in eligible if s != "ddg"]
     if academic_eligible:
         for q in queries[:2]:
-            results = await retrieve_from_academic(q, academic_eligible, max_per_source=4)
+            results = await retrieve_from_academic(
+                q, academic_eligible, max_per_source=4
+            )
             all_new.extend(results)
 
     if "ddg" in eligible and state["depth"] >= 2:
         ddg_srcs = [s for s in all_new if "ddg" in s.origin]
         to_enrich = [s for s in ddg_srcs if not s.text or len(s.text) < 200][:5]
         if to_enrich:
-            _emit(state, "progress", step="enrich",
-                  message=f"Fetching full text for {len(to_enrich)} pages...")
+            _emit(
+                state,
+                "progress",
+                step="enrich",
+                message=f"Fetching full text for {len(to_enrich)} pages...",
+            )
             enriched = await enrich_sources(to_enrich, max_concurrent=4)
             url_to_enriched = {e.url: e for e in enriched}
             all_new = [url_to_enriched.get(s.url, s) for s in all_new]
@@ -108,9 +125,12 @@ async def retrieve_node(state: ResearchState) -> Dict[str, Any]:
     for src in new_unique:
         await upsert_source(src)
 
-    _emit(state, "progress",
-          step="dedup",
-          message=f"Found {len(new_unique)} new unique sources (total: {len(existing_ids) + len(new_unique)})")
+    _emit(
+        state,
+        "progress",
+        step="dedup",
+        message=f"Found {len(new_unique)} new unique sources (total: {len(existing_ids) + len(new_unique)})",
+    )
 
     for src in new_unique:
         _emit(state, "source_found", source=src.to_dict())
@@ -126,13 +146,20 @@ async def retrieve_node(state: ResearchState) -> Dict[str, Any]:
 
 
 async def synthesize_node(state: ResearchState) -> Dict[str, Any]:
-    _emit(state, "progress", step="synthesize", message="Synthesising answer from evidence...")
+    _emit(
+        state,
+        "progress",
+        step="synthesize",
+        message="Synthesising answer from evidence...",
+    )
 
     topology = state["topology"]
     router = state["router_output"]
     failed_ids = set(state["failed_claim_ids"])
 
-    failed_texts = [c.text for c in state["claims"] if c.id in failed_ids] if failed_ids else []
+    failed_texts = (
+        [c.text for c in state["claims"] if c.id in failed_ids] if failed_ids else []
+    )
     gap_list = state["gap_list"]
 
     answer = await synthesize_answer(
@@ -159,13 +186,16 @@ async def judge_node(state: ResearchState) -> Dict[str, Any]:
     threshold = state["threshold"]
     judge_count = state["judge_count"]
 
-    active_judges = topology.judge_pool[:max(1, judge_count)]
+    active_judges = topology.judge_pool[: max(1, judge_count)]
     if not active_judges:
         active_judges = [topology.synthesis_backend]
 
-    _emit(state, "progress",
-          step="quorum",
-          message=f"Running quorum ({len(active_judges)} judges, granularity={granularity})...")
+    _emit(
+        state,
+        "progress",
+        step="quorum",
+        message=f"Running quorum ({len(active_judges)} judges, granularity={granularity})...",
+    )
 
     if granularity == "per_claim" and state["claims"]:
         quorum_results = await run_quorum_per_claim(
@@ -180,7 +210,8 @@ async def judge_node(state: ResearchState) -> Dict[str, Any]:
         )
         overall_score = (
             sum(r.composite_quality for r in quorum_results) / len(quorum_results)
-            if quorum_results else 0.0
+            if quorum_results
+            else 0.0
         )
         all_gaps = list({g for r in quorum_results for g in r.gap_list})
         failed_ids = [
@@ -207,12 +238,15 @@ async def judge_node(state: ResearchState) -> Dict[str, Any]:
         contested = top_result.contested
 
     for r in quorum_results:
-        _emit(state, "judge_result",
-              target=r.target,
-              passed=r.passed,
-              score=r.mean_score,
-              agreement=r.agreement_ratio,
-              gaps=r.gap_list[:3])
+        _emit(
+            state,
+            "judge_result",
+            target=r.target,
+            passed=r.passed,
+            score=r.mean_score,
+            agreement=r.agreement_ratio,
+            gaps=r.gap_list[:3],
+        )
 
     prev_sources = state["iterations"][-1].sources_found if state["iterations"] else 0
     iteration_result = IterationResult(
@@ -229,15 +263,17 @@ async def judge_node(state: ResearchState) -> Dict[str, Any]:
     contested_positions = []
     if contested and all_gaps:
         contested_positions = [
-            {"aspect": g, "support": "partial", "contested": True}
-            for g in all_gaps[:3]
+            {"aspect": g, "support": "partial", "contested": True} for g in all_gaps[:3]
         ]
 
-    _emit(state, "iteration_complete",
-          iteration=state["iteration"],
-          quality=overall_score,
-          done=False,
-          reason="")
+    _emit(
+        state,
+        "iteration_complete",
+        iteration=state["iteration"],
+        quality=overall_score,
+        done=False,
+        reason="",
+    )
 
     return {
         "iterations": state["iterations"] + [iteration_result],
@@ -249,7 +285,9 @@ async def judge_node(state: ResearchState) -> Dict[str, Any]:
     }
 
 
-def _check_plateau(quality_history: List[float], window: int = 3, delta: float = 0.05) -> bool:
+def _check_plateau(
+    quality_history: List[float], window: int = 3, delta: float = 0.05
+) -> bool:
     if len(quality_history) < window:
         return False
     recent = quality_history[-window:]
@@ -306,9 +344,12 @@ async def refine_node(state: ResearchState) -> Dict[str, Any]:
     for gap in gap_list[:3]:
         new_queries.append(f"{base} {gap}")
 
-    _emit(state, "progress",
-          step="refine",
-          message=f"Refining with {len(new_queries)} targeted queries based on {len(gap_list)} gaps...")
+    _emit(
+        state,
+        "progress",
+        step="refine",
+        message=f"Refining with {len(new_queries)} targeted queries based on {len(gap_list)} gaps...",
+    )
 
     return {"queries": new_queries, "events": state["events"]}
 

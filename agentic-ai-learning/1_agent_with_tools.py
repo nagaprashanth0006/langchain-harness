@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from pathlib import Path
 
 import ollama
 from mcp import ClientSession, StdioServerParameters
@@ -9,11 +10,14 @@ MODEL = "llama3.2"
 
 
 def mcp_to_ollama(tool):
-    return {"type": "function", "function": {
-        "name": tool.name,
-        "description": tool.description or "",
-        "parameters": tool.inputSchema,
-    }}
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description or "",
+            "parameters": tool.inputSchema,
+        },
+    }
 
 
 async def run_agent(query, tools, session):
@@ -28,12 +32,16 @@ async def run_agent(query, tools, session):
 
         for call in response.message.tool_calls:
             print(f"  Tool: {call.function.name}({call.function.arguments})")
-            result = await session.call_tool(call.function.name, dict(call.function.arguments))
+            result = await session.call_tool(
+                call.function.name, dict(call.function.arguments)
+            )
             messages.append({"role": "tool", "content": result.content[0].text})
 
 
 async def main():
-    server_params = StdioServerParameters(command=sys.executable, args=["mcp_server.py"])
+    server_params = StdioServerParameters(
+        command=sys.executable, args=[str(Path(__file__).with_name("mcp_server.py"))]
+    )
 
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:

@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from pathlib import Path
 
 import ollama
 from mcp import ClientSession, StdioServerParameters
@@ -15,10 +16,15 @@ SYSTEMS = {
 
 
 def route(query):
-    response = ollama.chat(model=MODEL, messages=[{
-        "role": "user",
-        "content": f"Reply with ONE word only: 'research', 'math', or 'general'.\nQuery: {query}",
-    }])
+    response = ollama.chat(
+        model=MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": f"Reply with ONE word only: 'research', 'math', or 'general'.\nQuery: {query}",
+            }
+        ],
+    )
     word = response.message.content.strip().lower()
     for agent in SYSTEMS:
         if agent in word:
@@ -39,21 +45,33 @@ async def run_specialist(query, agent, tools, session):
             return response.message.content
 
         for call in response.message.tool_calls:
-            result = await session.call_tool(call.function.name, dict(call.function.arguments))
+            result = await session.call_tool(
+                call.function.name, dict(call.function.arguments)
+            )
             messages.append({"role": "tool", "content": result.content[0].text})
 
 
 async def main():
-    server_params = StdioServerParameters(command=sys.executable, args=["mcp_server.py"])
+    server_params = StdioServerParameters(
+        command=sys.executable, args=[str(Path(__file__).with_name("mcp_server.py"))]
+    )
 
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
             mcp_tools = (await session.list_tools()).tools
-            tools = [{"type": "function", "function": {
-                "name": t.name, "description": t.description, "parameters": t.inputSchema,
-            }} for t in mcp_tools]
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.inputSchema,
+                    },
+                }
+                for t in mcp_tools
+            ]
 
             queries = [
                 "What are the latest fusion energy breakthroughs?",

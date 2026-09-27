@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Arc
 from sklearn.metrics.pairwise import cosine_similarity
 
+
 def generate_vectors(n, dim=2, seed=None):
     rng = np.random.default_rng(seed)
     vectors = rng.normal(size=(n, dim))
     return vectors
+
 
 def angle_degrees(u, v):
     norm_product = np.linalg.norm(u) * np.linalg.norm(v)
@@ -16,10 +18,14 @@ def angle_degrees(u, v):
     cosine = np.dot(u, v) / norm_product
     return cosine_to_angles(cosine)
 
+
 def cosine_to_angles(cosines):
     clipped = np.clip(cosines, -1, 1)
     angles = np.degrees(np.arccos(clipped))
-    return np.where(np.isclose(clipped, 1), 0, np.where(np.isclose(clipped, -1), 180, angles))
+    return np.where(
+        np.isclose(clipped, 1), 0, np.where(np.isclose(clipped, -1), 180, angles)
+    )
+
 
 def plot_angle_indicator_2d(vectors, ax, pair=(0, 1), origin=(0, 0), color="crimson"):
     i, j = pair
@@ -65,6 +71,7 @@ def plot_angle_indicator_2d(vectors, ax, pair=(0, 1), origin=(0, 0), color="crim
         va="center",
     )
 
+
 def plot_vectors_2d(vectors, ax=None, origin=(0, 0), colors=None, angle_pair=(0, 1)):
     if vectors.shape[1] != 2:
         raise ValueError("plot_vectors_2d requires 2D vectors (shape: n x 2).")
@@ -83,7 +90,16 @@ def plot_vectors_2d(vectors, ax=None, origin=(0, 0), colors=None, angle_pair=(0,
     if colors is None:
         colors = np.arange(n)
 
-    ax.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=1, color=plt.cm.tab10(colors % 10))
+    ax.quiver(
+        X,
+        Y,
+        U,
+        V,
+        angles="xy",
+        scale_units="xy",
+        scale=1,
+        color=plt.cm.tab10(colors % 10),
+    )
     for i, (u, v) in enumerate(zip(U, V)):
         ax.text(u * 1.05, v * 1.05, f"v{i}", fontsize=9)
 
@@ -104,6 +120,7 @@ def plot_vectors_2d(vectors, ax=None, origin=(0, 0), colors=None, angle_pair=(0,
     ax.set_ylim(all_y.min() - margin, all_y.max() + margin)
 
     return ax
+
 
 def plot_cosine_similarity_matrix(sim_matrix, ax=None, angle_matrix=None):
     """
@@ -126,23 +143,25 @@ def plot_cosine_similarity_matrix(sim_matrix, ax=None, angle_matrix=None):
             label = f"{sim_matrix[i, j]:.2f}"
             if angle_matrix is not None:
                 label += f"\nθ={angle_matrix[i, j]:.0f}°"
-            ax.text(j, i, label,
-                    ha="center", va="center", color="white" if abs(sim_matrix[i, j]) > 0.5 else "black",
-                    fontsize=7)
+            ax.text(
+                j,
+                i,
+                label,
+                ha="center",
+                va="center",
+                color="white" if abs(sim_matrix[i, j]) > 0.5 else "black",
+                fontsize=7,
+            )
 
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     return ax
 
+
 def main(n=5, dim=2, seed=42):
-    vectors = generate_vectors(n=n, dim=dim, seed=seed)
-    vectors = np.array([
-        [2, 5],
-        [1, 4],
-        [4, 1],
-        [1, 5],
-        [3, 3],
-        [3, 4]
-    ], dtype=float)
+
+    vectors = np.array(
+        [[2, 5], [1, 4], [4, 1], [1, 5], [3, 3], [3, 4], [-5, -7]], dtype=float
+    )
 
     n, dim = vectors.shape
 
@@ -155,7 +174,7 @@ def main(n=5, dim=2, seed=42):
     if dim == 2:
         plot_vectors_2d(vectors, ax=ax_vec)
 
-    matrix = vectors  # for clarity
+    matrix = vectors
     print("Matrix of vectors (shape: n x dim):")
     print(matrix)
 
@@ -171,6 +190,7 @@ def main(n=5, dim=2, seed=42):
 
     plt.tight_layout()
     plt.show()
+
 
 if __name__ == "__main__":
     main(n=6, dim=2, seed=124)

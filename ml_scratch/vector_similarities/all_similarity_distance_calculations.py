@@ -35,11 +35,14 @@ def plot_vectors_2d(vectors, ax=None, origin=(0, 0), colors=None):
         colors = np.arange(n)
 
     ax.quiver(
-        X, Y, U, V,
-        angles='xy',
-        scale_units='xy',
+        X,
+        Y,
+        U,
+        V,
+        angles="xy",
+        scale_units="xy",
         scale=1,
-        color=plt.cm.tab10(colors % 10)
+        color=plt.cm.tab10(colors % 10),
     )
 
     for i, (u, v) in enumerate(zip(U, V)):
@@ -61,8 +64,16 @@ def plot_vectors_2d(vectors, ax=None, origin=(0, 0), colors=None):
     return ax
 
 
-def plot_heatmap(matrix, ax=None, title="Heatmap", cmap="Blues", vmin=None, vmax=None,
-                 annotate=True, fmt="{:.2f}"):
+def plot_heatmap(
+    matrix,
+    ax=None,
+    title="Heatmap",
+    cmap="Blues",
+    vmin=None,
+    vmax=None,
+    annotate=True,
+    fmt="{:.2f}",
+):
     """
     Generic heatmap helper using imshow.
     """
@@ -83,10 +94,19 @@ def plot_heatmap(matrix, ax=None, title="Heatmap", cmap="Blues", vmin=None, vmax
             for j in range(n):
                 val = matrix[i, j]
                 ax.text(
-                    j, i, fmt.format(val),
-                    ha="center", va="center",
-                    color="white" if (vmin is not None and vmax is not None and abs(val - (vmin + vmax) / 2) > (vmax - vmin) / 4) else "black",
-                    fontsize=7
+                    j,
+                    i,
+                    fmt.format(val),
+                    ha="center",
+                    va="center",
+                    color="white"
+                    if (
+                        vmin is not None
+                        and vmax is not None
+                        and abs(val - (vmin + vmax) / 2) > (vmax - vmin) / 4
+                    )
+                    else "black",
+                    fontsize=7,
                 )
 
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -98,11 +118,14 @@ def plot_cosine_similarity_matrix(sim_matrix, ax=None):
     Visualize cosine similarity matrix as a heatmap.
     """
     return plot_heatmap(
-        sim_matrix, ax=ax,
+        sim_matrix,
+        ax=ax,
         title="Cosine Similarity Matrix",
         cmap="Blues",
-        vmin=-1, vmax=1,
-        annotate=True, fmt="{:.2f}"
+        vmin=-1,
+        vmax=1,
+        annotate=True,
+        fmt="{:.2f}",
     )
 
 
@@ -144,21 +167,11 @@ def pairwise_inner_products(X):
 def main(n=5, dim=2, seed=42):
     vectors = generate_vectors(n=n, dim=dim, seed=seed)
 
-    # vectors = np.array([
-    #     [2, 5],
-    #     [1, 4],
-    #     [4, 1],
-    #     [1, 5],
-    #     [3, 3],
-    #     [3, 4]
-    # ], dtype=float)
-
     n, dim = vectors.shape
 
-    matrix = vectors  # for clarity
+    matrix = vectors
     print("Matrix of vectors (shape: n x dim):")
     print(matrix)
-
 
     cos_sim = cosine_similarity(matrix)
     print("\nCosine similarity matrix:")
@@ -189,18 +202,46 @@ def main(n=5, dim=2, seed=42):
         plot_cosine_similarity_matrix(cos_sim, ax=ax_cos)
 
         ax_l1 = fig.add_subplot(gs[0, 2])
-        plot_heatmap(l1, ax=ax_l1, title="L1 (Manhattan) Distance", cmap="viridis", vmin=0, vmax=np.max(l1))
+        plot_heatmap(
+            l1,
+            ax=ax_l1,
+            title="L1 (Manhattan) Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(l1),
+        )
 
         ax_l2 = fig.add_subplot(gs[1, 0])
-        plot_heatmap(l2, ax=ax_l2, title="L2 (Euclidean) Distance", cmap="viridis", vmin=0, vmax=np.max(l2))
+        plot_heatmap(
+            l2,
+            ax=ax_l2,
+            title="L2 (Euclidean) Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(l2),
+        )
 
         ax_cheb = fig.add_subplot(gs[1, 1])
-        plot_heatmap(cheb, ax=ax_cheb, title="Chebyshev Distance", cmap="viridis", vmin=0, vmax=np.max(cheb))
+        plot_heatmap(
+            cheb,
+            ax=ax_cheb,
+            title="Chebyshev Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(cheb),
+        )
 
         ax_in = fig.add_subplot(gs[1, 2])
 
         max_abs = float(np.max(np.abs(inner))) if inner.size else 1.0
-        plot_heatmap(inner, ax=ax_in, title="Inner Product (Dot) Matrix", cmap="coolwarm", vmin=-max_abs, vmax=max_abs)
+        plot_heatmap(
+            inner,
+            ax=ax_in,
+            title="Inner Product (Dot) Matrix",
+            cmap="coolwarm",
+            vmin=-max_abs,
+            vmax=max_abs,
+        )
 
     else:
         fig = plt.figure(figsize=(12, 8))
@@ -210,17 +251,45 @@ def main(n=5, dim=2, seed=42):
         plot_cosine_similarity_matrix(cos_sim, ax=ax_cos)
 
         ax_l1 = fig.add_subplot(gs[0, 1])
-        plot_heatmap(l1, ax=ax_l1, title="L1 (Manhattan) Distance", cmap="viridis", vmin=0, vmax=np.max(l1))
+        plot_heatmap(
+            l1,
+            ax=ax_l1,
+            title="L1 (Manhattan) Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(l1),
+        )
 
         ax_l2 = fig.add_subplot(gs[1, 0])
-        plot_heatmap(l2, ax=ax_l2, title="L2 (Euclidean) Distance", cmap="viridis", vmin=0, vmax=np.max(l2))
+        plot_heatmap(
+            l2,
+            ax=ax_l2,
+            title="L2 (Euclidean) Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(l2),
+        )
 
         ax_cheb = fig.add_subplot(gs[1, 1])
-        plot_heatmap(cheb, ax=ax_cheb, title="Chebyshev Distance", cmap="viridis", vmin=0, vmax=np.max(cheb))
+        plot_heatmap(
+            cheb,
+            ax=ax_cheb,
+            title="Chebyshev Distance",
+            cmap="viridis",
+            vmin=0,
+            vmax=np.max(cheb),
+        )
 
         fig2, ax_in = plt.subplots(1, 1, figsize=(5, 4))
         max_abs = float(np.max(np.abs(inner))) if inner.size else 1.0
-        plot_heatmap(inner, ax=ax_in, title="Inner Product (Dot) Matrix", cmap="coolwarm", vmin=-max_abs, vmax=max_abs)
+        plot_heatmap(
+            inner,
+            ax=ax_in,
+            title="Inner Product (Dot) Matrix",
+            cmap="coolwarm",
+            vmin=-max_abs,
+            vmax=max_abs,
+        )
 
     plt.tight_layout()
     plt.show()

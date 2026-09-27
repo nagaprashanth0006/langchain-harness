@@ -1,4 +1,5 @@
-"""Fetch and extract clean text from web pages."""
+"Fetch and extract clean text from web pages."
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -40,6 +41,7 @@ async def fetch_page(url: str) -> Optional[str]:
 def _extract_text(html: str, url: str = "") -> Optional[str]:
     try:
         import trafilatura
+
         text = trafilatura.extract(
             html,
             url=url,
@@ -53,6 +55,7 @@ def _extract_text(html: str, url: str = "") -> Optional[str]:
 
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(html, "lxml")
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
@@ -74,7 +77,9 @@ async def enrich_source(source: Source) -> Source:
     return source
 
 
-async def enrich_sources(sources: List[Source], max_concurrent: int = 5) -> List[Source]:
+async def enrich_sources(
+    sources: List[Source], max_concurrent: int = 5
+) -> List[Source]:
     sem = asyncio.Semaphore(max_concurrent)
 
     async def _enrich(src: Source) -> Source:

@@ -80,7 +80,7 @@ class Claim(BaseModel):
 class JudgeVerdict(BaseModel):
     judge_id: str
     model: str
-    target: str  # claim_id or "answer"
+    target: str
     score: float = Field(ge=0.0, le=1.0)
     gaps: List[str] = Field(default_factory=list)
     rubric: str = ""

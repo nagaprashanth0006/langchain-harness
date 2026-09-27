@@ -1,44 +1,4 @@
-"""
-The full RAG pipeline: ingestion + query, end-to-end.
-
-Architecture
-────────────
-Ingestion path (offline):
-  Files → Loaders → Chunkers → Embedders → VectorStore + BM25 index
-
-Query path (online):
-  Query → [HyDE] → Retriever (dense+sparse) → Reranker → Generator → Response
-
-Pipeline design principles
-───────────────────────────
-1. Separation of ingestion and query: ingest once, query many times.
-2. Lazy initialization: heavy models (cross-encoder, LLM) load on first use.
-3. Thread-safety: vector store writes are serialized; reads are concurrent.
-4. Observability: every step logs timing and counts for debugging.
-
-Advanced RAG patterns (not implemented here, but referenced):
-─────────────────────────────────────────────────────────────
-• RAPTOR: hierarchical clustering + summarization of chunks for multi-hop QA.
-• GraphRAG: build knowledge graph from chunks; traverse graph during retrieval.
-• Self-RAG: LLM decides when to retrieve and critiques its own answers.
-• Corrective RAG (CRAG): evaluate retrieved docs; discard irrelevant ones.
-• Agentic RAG: LLM as agent with tools (retrieve, calculate, search web).
-• Multi-index RAG: separate indexes per document type/domain; route queries.
-
-Evaluation metrics
-───────────────────
-• RAGAS: Faithfulness, Answer Relevancy, Context Precision, Context Recall
-• ARES: automated RAG evaluation using LLM-as-judge
-• TruLens: end-to-end evaluation framework with RAG triad
-• Run RAGAS on a golden QA dataset before deploying changes.
-
-Monitoring in production
-─────────────────────────
-• Log retrieval scores per query; alert on sudden drops (index drift).
-• Track answer latency p50/p95/p99; alert on regressions.
-• Sample queries for human evaluation (20/week minimum).
-• Monitor context utilization: are retrieved chunks actually referenced?
-"""
+"The full RAG pipeline: ingestion + query, end-to-end."
 
 from __future__ import annotations
 
@@ -55,33 +15,19 @@ from ingestion.chunkers import BaseChunker, chunk_documents, get_chunker
 from ingestion.loaders import load_document, load_documents, load_from_bytes
 from models import Chunk, Document, RAGResponse, ScoredChunk
 from retrieval.reranker import BaseReranker, get_reranker
-from retrieval.retriever import BaseRetriever, BM25Retriever, HybridRetriever, get_retriever
+from retrieval.retriever import (
+    BaseRetriever,
+    BM25Retriever,
+    HybridRetriever,
+    get_retriever,
+)
 from storage.vector_store import BaseVectorStore, get_vector_store
 
 logger = logging.getLogger(__name__)
 
 
 class RAGPipeline:
-    """
-    Orchestrates the full RAG pipeline.
-
-    Usage:
-        pipeline = RAGPipeline.from_settings()
-
-        # Ingest documents
-        pipeline.ingest_file("report.pdf")
-        pipeline.ingest_bytes(upload_bytes, "upload.pdf")
-
-        # Query
-        response = pipeline.query("What is the revenue for Q4 2024?")
-        print(response.answer)
-        for sc in response.sources:
-            print(f"  [{sc.score:.3f}] {sc.chunk.source}")
-
-        # Stream
-        for token in pipeline.query_stream("Summarize the risks"):
-            print(token, end="", flush=True)
-    """
+    "Orchestrates the full RAG pipeline."
 
     def __init__(
         self,
@@ -99,14 +45,12 @@ class RAGPipeline:
         self.reranker = reranker
         self.generator = generator
 
-        # BM25 index is maintained separately (in-memory)
         self._bm25: Optional[BM25Retriever] = None
         if isinstance(retriever, HybridRetriever):
             self._bm25 = retriever.sparse
         elif hasattr(retriever, "_bm25"):
             self._bm25 = retriever._bm25
 
-        # Track all chunks for BM25 index rebuilds
         self._all_chunks: list[Chunk] = []
 
     @classmethod
@@ -120,7 +64,6 @@ class RAGPipeline:
         vector_store = get_vector_store()
         reranker = get_reranker()
 
-        # Build retriever (hybrid needs both stores)
         retriever = get_retriever(
             vector_store=vector_store,
             embedder=embedder,
@@ -138,14 +81,14 @@ class RAGPipeline:
         logger.info(
             "RAGPipeline initialized: chunker=%s embedder=%s store=%s "
             "retriever=%s reranker=%s generator=%s",
-            settings.chunker_type, settings.embedder_type, settings.vector_store_type,
-            settings.retriever_type, settings.reranker_type, settings.generator_type,
+            settings.chunker_type,
+            settings.embedder_type,
+            settings.vector_store_type,
+            settings.retriever_type,
+            settings.reranker_type,
+            settings.generator_type,
         )
         return pipeline
-
-    # -----------------------------------------------------------------------
-    # Ingestion
-    # -----------------------------------------------------------------------
 
     def _ingest_documents(self, documents: list[Document]) -> list[Chunk]:
         """
@@ -157,18 +100,14 @@ class RAGPipeline:
 
         t0 = time.perf_counter()
 
-        # 1. Chunk
         chunks = chunk_documents(documents, self.chunker)
         logger.info("Produced %d chunks from %d documents", len(chunks), len(documents))
 
-        # 2. Embed
         chunks = self.embedder.embed_chunks(chunks)
         logger.info("Embedded %d chunks", len(chunks))
 
-        # 3. Persist to vector store
         self.vector_store.upsert(chunks)
 
-        # 4. Update BM25 index (in-memory; rebuild needed)
         self._all_chunks.extend(chunks)
         if self._bm25 is not None:
             self._bm25.add_chunks(chunks)
@@ -176,7 +115,9 @@ class RAGPipeline:
         elapsed = time.perf_counter() - t0
         logger.info(
             "Ingestion complete: %d chunks in %.2fs (%.1f chunks/s)",
-            len(chunks), elapsed, len(chunks) / elapsed,
+            len(chunks),
+            elapsed,
+            len(chunks) / elapsed,
         )
         return chunks
 
@@ -205,7 +146,9 @@ class RAGPipeline:
         max_mb: int | None = None,
     ) -> list[Chunk]:
         """Ingest raw bytes (e.g., from an HTTP upload)."""
-        documents = load_from_bytes(content, filename, max_mb=max_mb or settings.max_file_size_mb)
+        documents = load_from_bytes(
+            content, filename, max_mb=max_mb or settings.max_file_size_mb
+        )
         return self._ingest_documents(documents)
 
     def ingest_text(self, text: str, source: str = "inline") -> list[Chunk]:
@@ -224,10 +167,6 @@ class RAGPipeline:
             self._bm25.index(self._all_chunks)
         logger.info("Deleted source from index: %s", source)
 
-    # -----------------------------------------------------------------------
-    # Query
-    # -----------------------------------------------------------------------
-
     def query(
         self,
         query: str,
@@ -236,22 +175,9 @@ class RAGPipeline:
         filter: Optional[dict[str, Any]] = None,
         template: Optional[RAGPromptTemplate] = None,
     ) -> RAGResponse:
-        """
-        Full RAG query: retrieve → rerank → generate.
-
-        Args:
-            query:          The user's question.
-            top_k_retrieval: Number of candidates to retrieve (before reranking).
-            top_k_final:    Number of passages to pass to the LLM.
-            filter:         Metadata filter for retrieval (e.g., {"file_name": "doc.pdf"}).
-            template:       Custom prompt template.
-
-        Returns:
-            RAGResponse with answer, sources, and token counts.
-        """
+        "Full RAG query: retrieve → rerank → generate."
         t0 = time.perf_counter()
 
-        # 1. Retrieve
         retrieval_k = top_k_retrieval or settings.top_k_retrieval
         candidates = self.retriever.retrieve(query, top_k=retrieval_k, filter=filter)
         t_retrieve = time.perf_counter()
@@ -265,12 +191,10 @@ class RAGPipeline:
                 model=self.generator.model_name,
             )
 
-        # 2. Rerank
         final_k = top_k_final or settings.top_k_final
         context_chunks = self.reranker.rerank(query, candidates, top_k=final_k)
         t_rerank = time.perf_counter()
 
-        # 3. Generate
         response = self.generator.generate(query, context_chunks, template)
         t_generate = time.perf_counter()
 
@@ -314,10 +238,6 @@ class RAGPipeline:
         context_chunks = self.reranker.rerank(query, candidates, top_k=final_k)
 
         yield from self.generator.generate_stream(query, context_chunks, template)
-
-    # -----------------------------------------------------------------------
-    # Utility
-    # -----------------------------------------------------------------------
 
     def stats(self) -> dict[str, Any]:
         """Return current pipeline stats."""

@@ -39,7 +39,11 @@ class ResolvedTopology:
                 "reachable": self._ollama_reachable,
             },
             "judges": [
-                {"id": j.get("id"), "model": j.get("model"), "provider": j.get("provider", "ollama")}
+                {
+                    "id": j.get("id"),
+                    "model": j.get("model"),
+                    "provider": j.get("provider", "ollama"),
+                }
                 for j in self.judge_pool
             ],
             "classifier": {
@@ -48,8 +52,9 @@ class ResolvedTopology:
             },
             "ollama_reachable": self._ollama_reachable,
             "setup_hint": (
-                None if self._ollama_reachable else
-                f"Ollama not running at {synth_url}. Run: ollama serve && ollama pull {self.synthesis_backend.get('model', 'qwen2.5:14b')}"
+                None
+                if self._ollama_reachable
+                else f"Ollama not running at {synth_url}. Run: ollama serve && ollama pull {self.synthesis_backend.get('model', 'qwen2.5:14b')}"
             ),
         }
 
@@ -66,7 +71,9 @@ async def _probe_ollama(base_url: str, timeout: float = 3.0) -> Optional[List[st
     return None
 
 
-async def _model_available(base_url: str, model: str, available_models: Optional[List[str]]) -> bool:
+async def _model_available(
+    base_url: str, model: str, available_models: Optional[List[str]]
+) -> bool:
     if available_models is None:
         return False
     model_base = model.split(":")[0].lower()
@@ -76,7 +83,9 @@ async def _model_available(base_url: str, model: str, available_models: Optional
     return False
 
 
-async def _pick_available_model(backend: Dict[str, Any], available: Optional[List[str]]) -> Optional[str]:
+async def _pick_available_model(
+    backend: Dict[str, Any], available: Optional[List[str]]
+) -> Optional[str]:
     for candidate in [backend.get("model"), backend.get("fallback_model")]:
         if not candidate:
             continue
@@ -133,8 +142,16 @@ async def probe_capabilities() -> ResolvedTopology:
                 live_judges.append({**judge, "available": True})
 
     if len(live_judges) >= 3:
-        local_count = sum(1 for j in live_judges if not j.get("provider") or j.get("provider") == "ollama")
-        mode = ResolvedTopology.DISTRIBUTED if local_count >= 3 else ResolvedTopology.HYBRID
+        local_count = sum(
+            1
+            for j in live_judges
+            if not j.get("provider") or j.get("provider") == "ollama"
+        )
+        mode = (
+            ResolvedTopology.DISTRIBUTED
+            if local_count >= 3
+            else ResolvedTopology.HYBRID
+        )
     elif len(live_judges) >= 1:
         mode = ResolvedTopology.HYBRID
     else:
@@ -149,7 +166,9 @@ async def probe_capabilities() -> ResolvedTopology:
         mode = ResolvedTopology.SEQUENTIAL
 
     ollama_ok = available_models is not None
-    logger.info(f"Capability resolve: topology={mode}, judges={len(live_judges)}, synth={synth_cfg.get('model')}, ollama={ollama_ok}")
+    logger.info(
+        f"Capability resolve: topology={mode}, judges={len(live_judges)}, synth={synth_cfg.get('model')}, ollama={ollama_ok}"
+    )
     return ResolvedTopology(
         mode=mode,
         synthesis_backend=synth_cfg,

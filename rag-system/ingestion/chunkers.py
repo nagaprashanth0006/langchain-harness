@@ -1,48 +1,4 @@
-"""
-Chunking strategies for the RAG ingestion pipeline.
-
-Chunking is one of the highest-leverage decisions in RAG — the wrong strategy
-degrades both retrieval precision and generation quality.
-
-Strategy comparison
-───────────────────
-RecursiveCharacter (default)
-  Splits on \\n\\n → \\n → " " → "" until target size is met.
-  Respects document structure. Best all-around default.
-  Caveat: purely character-based; a chunk may straddle a topic boundary.
-
-Semantic
-  Groups sentences by embedding similarity.
-  Produces topically coherent chunks regardless of character count.
-  Caveat: slow (requires embedding during ingestion), chunk sizes vary widely.
-  Use when: topics shift within a section; domain is highly specialized.
-
-SlidingWindow
-  Fixed-size chunks with configurable overlap.
-  Guarantees no information is missed across chunk boundaries.
-  Caveat: redundant data → higher storage and embedding cost.
-  Use when: retrieving precise passages (legal, medical clauses).
-
-Sentence
-  One or more sentences per chunk; preserves grammatical units.
-  Very low information loss at boundaries.
-  Caveat: chunks can be tiny (→ too many chunks, noisy retrieval).
-  Use when: short factual Q&A, FAQ-style content.
-
-Production tips
-───────────────
-1. Tune chunk_size for your embedding model's optimal context window.
-   • text-embedding-3-small: sweet spot 256–512 tokens
-   • BGE-large: 512 tokens max (hard limit)
-2. Include metadata in chunk content when helpful for retrieval:
-   e.g., prepend "Source: Annual Report 2024 | Section: Risk Factors"
-3. Overlap (chunk_overlap) reduces missed cross-boundary context.
-   Rule of thumb: overlap ≈ 10–15 % of chunk_size.
-4. Benchmark your chunker against your actual query distribution before
-   committing — no single strategy wins universally.
-5. For multilingual corpora, prefer sentence-level chunking; recursive
-   char splitting misses sentence boundaries in CJK languages.
-"""
+"Chunking strategies for the RAG ingestion pipeline."
 
 from __future__ import annotations
 
@@ -60,26 +16,9 @@ from models import Chunk, Document
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 @functools.lru_cache(maxsize=4)
 def _get_encoder(encoding_name: str = "cl100k_base") -> tiktoken.Encoding:
-    """
-    Return a cached tiktoken encoder.
-
-    Why lru_cache?
-    ``tiktoken.get_encoding()`` loads a vocabulary file from disk on every
-    call (~10 ms).  During ingestion of a 100-page PDF we call _token_count()
-    thousands of times — loading the encoder fresh each time adds seconds of
-    unnecessary I/O.  The lru_cache keeps up to 4 encoders in memory (one per
-    encoding name) so the file is loaded once and reused for the process lifetime.
-
-    cl100k_base is used by GPT-4, GPT-3.5-turbo, and OpenAI embedding models.
-    For other tokenizers (e.g., LLaMA's sentencepiece), swap in the appropriate
-    encoder here.
-    """
+    "Return a cached tiktoken encoder."
     return tiktoken.get_encoding(encoding_name)
 
 
@@ -95,20 +34,17 @@ def _ensure_nltk_punkt() -> None:
         nltk.download("punkt_tab", quiet=True)
 
 
-# ---------------------------------------------------------------------------
-# Base interface
-# ---------------------------------------------------------------------------
-
 class BaseChunker(ABC):
     def __init__(self, chunk_size: int, chunk_overlap: int):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
     @abstractmethod
-    def split(self, document: Document) -> list[Chunk]:
-        ...
+    def split(self, document: Document) -> list[Chunk]: ...
 
-    def _make_chunk(self, text: str, doc: Document, index: int, extra_meta: dict | None = None) -> Chunk:
+    def _make_chunk(
+        self, text: str, doc: Document, index: int, extra_meta: dict | None = None
+    ) -> Chunk:
         meta = {
             **doc.metadata,
             "chunk_index": index,
@@ -125,10 +61,6 @@ class BaseChunker(ABC):
         )
 
 
-# ---------------------------------------------------------------------------
-# 1. Recursive Character Text Splitter (best default)
-# ---------------------------------------------------------------------------
-
 class RecursiveChunker(BaseChunker):
     """
     Splits on paragraph → sentence → word boundaries in priority order.
@@ -142,7 +74,7 @@ class RecursiveChunker(BaseChunker):
     _SEPARATORS = ["\n\n", "\n", ". ", "! ", "? ", " ", ""]
 
     def split(self, document: Document) -> list[Chunk]:
-        # Approximate: 1 token ≈ 4 chars for English; use chars as proxy
+
         char_limit = self.chunk_size * 4
         overlap_chars = self.chunk_overlap * 4
 
@@ -157,7 +89,9 @@ class RecursiveChunker(BaseChunker):
                 return self._merge_splits(splits, sep, limit, overlap)
         return [text]
 
-    def _merge_splits(self, splits: list[str], sep: str, limit: int, overlap: int) -> list[str]:
+    def _merge_splits(
+        self, splits: list[str], sep: str, limit: int, overlap: int
+    ) -> list[str]:
         chunks: list[str] = []
         current_parts: list[str] = []
         current_len = 0
@@ -168,7 +102,7 @@ class RecursiveChunker(BaseChunker):
                 chunk_text = sep.join(current_parts).strip()
                 if chunk_text:
                     chunks.append(chunk_text)
-                # Retain overlap
+
                 overlap_parts: list[str] = []
                 overlap_len = 0
                 for p in reversed(current_parts):
@@ -190,10 +124,6 @@ class RecursiveChunker(BaseChunker):
         return chunks
 
 
-# ---------------------------------------------------------------------------
-# 2. Semantic Chunker
-# ---------------------------------------------------------------------------
-
 class SemanticChunker(BaseChunker):
     """
     Groups consecutive sentences by embedding similarity.
@@ -205,14 +135,17 @@ class SemanticChunker(BaseChunker):
     Alternative: Use LangChain's SemanticChunker (same idea, more options).
     """
 
-    def __init__(self, chunk_size: int, chunk_overlap: int, breakpoint_threshold: float = 0.4):
+    def __init__(
+        self, chunk_size: int, chunk_overlap: int, breakpoint_threshold: float = 0.4
+    ):
         super().__init__(chunk_size, chunk_overlap)
         self.breakpoint_threshold = breakpoint_threshold
-        self._model = None  # Lazy load
+        self._model = None
 
     def _get_model(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer("BAAI/bge-small-en-v1.5")
         return self._model
 
@@ -227,15 +160,15 @@ class SemanticChunker(BaseChunker):
         model = self._get_model()
         embeddings = model.encode(sentences, normalize_embeddings=True)
 
-        # Compute adjacent cosine similarity (already normalized → dot product)
         similarities = [
             float(np.dot(embeddings[i], embeddings[i + 1]))
             for i in range(len(embeddings) - 1)
         ]
 
-        # Find split points where similarity drops
         split_indices = [
-            i + 1 for i, sim in enumerate(similarities) if sim < (1 - self.breakpoint_threshold)
+            i + 1
+            for i, sim in enumerate(similarities)
+            if sim < (1 - self.breakpoint_threshold)
         ]
 
         chunks: list[Chunk] = []
@@ -248,10 +181,6 @@ class SemanticChunker(BaseChunker):
 
         return chunks
 
-
-# ---------------------------------------------------------------------------
-# 3. Sliding Window Chunker
-# ---------------------------------------------------------------------------
 
 class SlidingWindowChunker(BaseChunker):
     """
@@ -266,14 +195,16 @@ class SlidingWindowChunker(BaseChunker):
     def split(self, document: Document) -> list[Chunk]:
         words = document.content.split()
         char_limit = self.chunk_size * 4
-        overlap_words = max(1, self.chunk_overlap * 4 // 6)  # rough word estimate
+        overlap_words = max(1, self.chunk_overlap * 4 // 6)
 
         chunks: list[Chunk] = []
         start = 0
         while start < len(words):
             end = start
             current_chars = 0
-            while end < len(words) and current_chars + len(words[end]) + 1 <= char_limit:
+            while (
+                end < len(words) and current_chars + len(words[end]) + 1 <= char_limit
+            ):
                 current_chars += len(words[end]) + 1
                 end += 1
 
@@ -287,10 +218,6 @@ class SlidingWindowChunker(BaseChunker):
 
         return chunks
 
-
-# ---------------------------------------------------------------------------
-# 4. Sentence Chunker
-# ---------------------------------------------------------------------------
 
 class SentenceChunker(BaseChunker):
     """
@@ -312,8 +239,10 @@ class SentenceChunker(BaseChunker):
         for sent in sentences:
             sent_tokens = _token_count(sent)
             if current_tokens + sent_tokens > self.chunk_size and current:
-                chunks.append(self._make_chunk(" ".join(current), document, len(chunks)))
-                # Overlap: carry last N sentences
+                chunks.append(
+                    self._make_chunk(" ".join(current), document, len(chunks))
+                )
+
                 overlap_sents: list[str] = []
                 overlap_tokens = 0
                 for s in reversed(current):
@@ -333,10 +262,6 @@ class SentenceChunker(BaseChunker):
 
         return chunks
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def get_chunker(
     chunker_type: ChunkerType | None = None,
@@ -363,7 +288,9 @@ def get_chunker(
         raise ValueError(f"Unknown chunker type: {ctype}")
 
 
-def chunk_documents(documents: list[Document], chunker: BaseChunker | None = None) -> list[Chunk]:
+def chunk_documents(
+    documents: list[Document], chunker: BaseChunker | None = None
+) -> list[Chunk]:
     """Convenience: chunk a list of documents and return all chunks."""
     if chunker is None:
         chunker = get_chunker()
@@ -374,5 +301,7 @@ def chunk_documents(documents: list[Document], chunker: BaseChunker | None = Non
         all_chunks.extend(chunks)
         logger.debug("Chunked '%s' into %d chunks", doc.source, len(chunks))
 
-    logger.info("Total chunks produced: %d from %d documents", len(all_chunks), len(documents))
+    logger.info(
+        "Total chunks produced: %d from %d documents", len(all_chunks), len(documents)
+    )
     return all_chunks

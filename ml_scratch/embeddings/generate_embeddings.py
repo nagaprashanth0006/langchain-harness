@@ -1,13 +1,14 @@
+import os
 import oracledb
 from sentence_transformers import SentenceTransformer
 
-# --- ORACLE CLIENT INIT ---
+
 oracledb.init_oracle_client(lib_dir="instantclient_23_7")
 
-# --- CONFIGURATION ---
-DB_USER = ""
-DB_PASSWORD = ""
-DB_DSN = "localhost:1521/freepdb1"
+
+DB_USER = os.environ["ORACLE_USER"]
+DB_PASSWORD = os.environ["ORACLE_PASSWORD"]
+DB_DSN = os.environ.get("ORACLE_DSN", "localhost:1521/freepdb1")
 
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 TABLE_NAME = "TEXT_EMBEDDINGS"
@@ -20,7 +21,7 @@ texts = [
 
 def connect_to_oracle():
     connection = oracledb.connect(
-        user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN, mode=oracledb.SYSDBA
+        user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN
     )
     return connection
 
@@ -65,10 +66,10 @@ def insert_embeddings(connection, texts, embeddings):
         if len(vector) != 384:
             raise ValueError(f"Vector has {len(vector)} dimensions instead of 384!")
 
-        # Convert the vector to a comma-separated string
+        
         vector_str = ",".join(f"{v:.6f}" for v in vector)
 
-        # Call the stored procedure
+        
         cursor.callproc("insert_text_embedding", [text, vector_str])
 
     connection.commit()

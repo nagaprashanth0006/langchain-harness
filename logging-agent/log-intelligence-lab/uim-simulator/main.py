@@ -1,13 +1,4 @@
-"""
-Enhanced UIM synthetic log simulator.
-
-Improvements over original:
-- Multi-line stack trace patterns (Oracle/Helidon style)
-- pod / container JSON fields for K8s semantics detection
-- Larger, more varied message pool per service
-- On-demand incident HTTP control endpoint (POST /incident, /healthy, /mixed)
-- SCENARIO env var still works as before; control endpoint overrides at runtime
-"""
+"Enhanced UIM synthetic log simulator."
 
 import json
 import os
@@ -30,8 +21,6 @@ CONTROL_PORT = int(os.getenv("CONTROL_PORT", "9001"))
 
 RUNNING = True
 
-
-# ── Message pools ────────────────────────────────────────────────────────────
 
 NORMAL_MESSAGES = {
     "uim-auth": [
@@ -71,7 +60,7 @@ NORMAL_MESSAGES = {
     ],
 }
 
-# Stack trace fragments by service (Oracle/Helidon/WebLogic patterns)
+
 STACK_TRACES = {
     "uim-auth": (
         "java.lang.RuntimeException: Token validation failed\n"
@@ -198,8 +187,6 @@ ISSUE_MESSAGES = {
 }
 
 
-# ── Control server ────────────────────────────────────────────────────────────
-
 class ControlHandler(BaseHTTPRequestHandler):
     """Tiny HTTP server for on-demand scenario switching."""
 
@@ -228,18 +215,20 @@ class ControlHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        body = json.dumps({
-            "service": SERVICE_NAME,
-            "scenario": SCENARIO,
-            "error_rate": ERROR_RATE,
-        }).encode()
+        body = json.dumps(
+            {
+                "service": SERVICE_NAME,
+                "scenario": SCENARIO,
+                "error_rate": ERROR_RATE,
+            }
+        ).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(body)
 
     def log_message(self, *args):
-        pass  # suppress access logs
+        pass
 
 
 def _start_control_server():
@@ -250,14 +239,12 @@ def _start_control_server():
         _emit("WARN", f"Control server failed to start port={CONTROL_PORT} error={exc}")
 
 
-# ── Emission ─────────────────────────────────────────────────────────────────
-
 def _emit(level, message):
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "level": level,
         "namespace": NAMESPACE,
-        "pod": f"{SERVICE_NAME}-{random.randint(1000,9999)}",
+        "pod": f"{SERVICE_NAME}-{random.randint(1000, 9999)}",
         "container": SERVICE_NAME,
         "app": SERVICE_NAME,
         "service": SERVICE_NAME,
@@ -296,18 +283,19 @@ def _stop(_signum, _frame):
     RUNNING = False
 
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
-
 def main():
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
 
     threading.Thread(target=_start_control_server, daemon=True).start()
-    _emit("INFO", (
-        f"Started enhanced UIM simulator service={SERVICE_NAME} "
-        f"namespace={NAMESPACE} scenario={SCENARIO} "
-        f"error_rate={ERROR_RATE} control_port={CONTROL_PORT}"
-    ))
+    _emit(
+        "INFO",
+        (
+            f"Started enhanced UIM simulator service={SERVICE_NAME} "
+            f"namespace={NAMESPACE} scenario={SCENARIO} "
+            f"error_rate={ERROR_RATE} control_port={CONTROL_PORT}"
+        ),
+    )
 
     while RUNNING:
         if SCENARIO == "healthy":

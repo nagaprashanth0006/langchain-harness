@@ -36,7 +36,6 @@ export function streamQuery(
         onDone();
       }
     } catch {
-      // ignore parse errors
     }
   };
 

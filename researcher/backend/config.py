@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 _CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
@@ -44,16 +47,18 @@ def _apply_env_overrides(cfg: Dict[str, Any]) -> None:
     if not ds.get("pubmed", {}).get("api_key"):
         ds.setdefault("pubmed", {})["api_key"] = os.environ.get("PUBMED_API_KEY")
     if not ds.get("unpaywall", {}).get("email"):
-        ds.setdefault("unpaywall", {})["email"] = os.environ.get("UNPAYWALL_EMAIL") or \
-            ds.get("openalexs", {}).get("email")
+        ds.setdefault("unpaywall", {})["email"] = os.environ.get(
+            "UNPAYWALL_EMAIL"
+        ) or ds.get("openalexs", {}).get("email")
 
 
 def get_slider_params(depth: int, accuracy: int) -> Dict[str, Any]:
     cfg = get_config()
     sm = cfg.get("slider_mappings", {})
-    # YAML may load int keys as int or str depending on the value
+
     def _get(mapping: dict, key: int) -> dict:
         return mapping.get(key) or mapping.get(str(key)) or {}
+
     d_params = _get(sm.get("depth", {}), depth)
     a_params = _get(sm.get("accuracy", {}), accuracy)
     return {**d_params, **a_params}
@@ -85,4 +90,6 @@ def get_judge_candidates() -> List[Dict[str, Any]]:
 
 def get_cache_config() -> Dict[str, Any]:
     cfg = get_config()
-    return cfg.get("cache", {"ttl_days": 30, "max_size_mb": 500, "db_path": "source_store.db"})
+    return cfg.get(
+        "cache", {"ttl_days": 30, "max_size_mb": 500, "db_path": "source_store.db"}
+    )

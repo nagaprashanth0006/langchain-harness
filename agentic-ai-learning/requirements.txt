@@ -1,3 +1,4 @@
 ollama
 mcp
 tavily-python
+python-dotenv

@@ -1,6 +1,7 @@
 from locust import HttpUser, task, between
 import random
 
+
 class WebUser(HttpUser):
     wait_time = between(0.1, 0.5)
 
@@ -19,4 +20,6 @@ class WebUser(HttpUser):
 
     @task(1)
     def flask_create(self):
-        self.client.post("/api/blog/posts", json={"title": f"title-{random.randint(1,9999)}"})
+        self.client.post(
+            "/api/blog/posts", json={"title": f"title-{random.randint(1, 9999)}"}
+        )

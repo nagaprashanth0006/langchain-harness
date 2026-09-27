@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from pathlib import Path
 
 import ollama
 from mcp import ClientSession, StdioServerParameters
@@ -15,11 +16,19 @@ SYSTEMS = {
 
 
 def plan(query):
-    response = ollama.chat(model=MODEL, messages=[{"role": "user", "content": (
-        f"Break this into 2-3 independent tasks.\n"
-        f"Format each line as: AGENT: task  (AGENT = RESEARCH, MATH, or GENERAL)\n"
-        f"Query: {query}"
-    )}])
+    response = ollama.chat(
+        model=MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Break this into 2-3 independent tasks.\n"
+                    f"Format each line as: AGENT: task  (AGENT = RESEARCH, MATH, or GENERAL)\n"
+                    f"Query: {query}"
+                ),
+            }
+        ],
+    )
     tasks = []
     for line in response.message.content.strip().splitlines():
         if ":" in line:
@@ -43,30 +52,50 @@ async def run_task(task, tools, session):
             return response.message.content
 
         for call in response.message.tool_calls:
-            result = await session.call_tool(call.function.name, dict(call.function.arguments))
+            result = await session.call_tool(
+                call.function.name, dict(call.function.arguments)
+            )
             messages.append({"role": "tool", "content": result.content[0].text})
 
 
 def synthesize(query, results):
     context = "\n\n".join(f"[{r['agent']}]: {r['result']}" for r in results)
-    response = ollama.chat(model=MODEL, messages=[{"role": "user", "content": (
-        f"Combine these agent results into one coherent answer.\n"
-        f"Original query: {query}\n\nResults:\n{context}"
-    )}])
+    response = ollama.chat(
+        model=MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Combine these agent results into one coherent answer.\n"
+                    f"Original query: {query}\n\nResults:\n{context}"
+                ),
+            }
+        ],
+    )
     return response.message.content
 
 
 async def main():
-    server_params = StdioServerParameters(command=sys.executable, args=["mcp_server.py"])
+    server_params = StdioServerParameters(
+        command=sys.executable, args=[str(Path(__file__).with_name("mcp_server.py"))]
+    )
 
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
             mcp_tools = (await session.list_tools()).tools
-            tools = [{"type": "function", "function": {
-                "name": t.name, "description": t.description, "parameters": t.inputSchema,
-            }} for t in mcp_tools]
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.inputSchema,
+                    },
+                }
+                for t in mcp_tools
+            ]
 
             query = (
                 "Research current EV adoption trends, and calculate: "

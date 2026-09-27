@@ -1,45 +1,4 @@
-"""
-Embedding backends for the RAG system.
-
-Embedding model comparison
-──────────────────────────
-OpenAI text-embedding-3-small  (default)
-  dim=1536, ~62M tokens/$1, strong performance, closed-source.
-  When to use: best quality/cost for English-heavy English production apps.
-
-OpenAI text-embedding-3-large
-  dim=3072, ~6× cost vs small, ~5 % better MTEB score.
-  When to use: high-stakes retrieval (legal, medical) where quality > cost.
-
-BAAI/bge-small-en-v1.5  (HuggingFace, default)
-  dim=384, free, runs on CPU, ~33 ms/batch on M1.
-  When to use: dev, privacy-sensitive docs, on-prem, budget-conscious.
-
-BAAI/bge-large-en-v1.5
-  dim=1024, free, 4× slower than small, top MTEB English rank.
-  When to use: highest quality free embeddings.
-
-intfloat/e5-large-v2
-  Excellent for asymmetric retrieval (query vs passage).
-  Requires "query: " prefix for queries, "passage: " for docs.
-
-Cohere embed-english-v3.0
-  dim=1024, strong multilingual, supports compression (int8).
-  When to use: multilingual corpora, or if already using Cohere reranker.
-
-Matryoshka Representation Learning (MRL)
-  OpenAI 3-small/large support truncated dimensions (e.g., 512 instead of 1536).
-  Use dimensions= parameter to reduce storage/cost with minimal quality loss.
-
-Production tips
-───────────────
-1. Embed queries with the SAME model used for document indexing.
-2. Batch embed documents; avoid per-chunk API calls (rate limits + latency).
-3. Cache embeddings on disk: re-embedding the same text is wasteful.
-4. Normalize embeddings to unit length for cosine → dot product optimization.
-5. Monitor embedding drift: if you change models, re-embed the entire index.
-6. For multilingual: use LaBSE or multilingual-e5-large.
-"""
+"Embedding backends for the RAG system."
 
 from __future__ import annotations
 
@@ -56,10 +15,6 @@ from models import Chunk
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Disk cache (LRU-style via joblib / pickle)
-# ---------------------------------------------------------------------------
 
 class EmbeddingCache:
     """
@@ -87,7 +42,9 @@ class EmbeddingCache:
         with open(key, "wb") as f:
             pickle.dump(embedding, f)
 
-    def get_batch(self, model: str, texts: list[str]) -> tuple[dict[int, list[float]], list[int]]:
+    def get_batch(
+        self, model: str, texts: list[str]
+    ) -> tuple[dict[int, list[float]], list[int]]:
         """Returns cached results and indices of cache misses."""
         cached: dict[int, list[float]] = {}
         misses: list[int] = []
@@ -99,10 +56,6 @@ class EmbeddingCache:
                 misses.append(i)
         return cached, misses
 
-
-# ---------------------------------------------------------------------------
-# Base interface
-# ---------------------------------------------------------------------------
 
 class BaseEmbedder(ABC):
     model_name: str = "unknown"
@@ -124,7 +77,9 @@ class BaseEmbedder(ABC):
         self.cache.set(self.model_name, text, result)
         return result
 
-    def embed_batch(self, texts: list[str], batch_size: int | None = None) -> list[list[float]]:
+    def embed_batch(
+        self, texts: list[str], batch_size: int | None = None
+    ) -> list[list[float]]:
         """
         Embed a list of texts with caching and batching.
 
@@ -133,16 +88,16 @@ class BaseEmbedder(ABC):
         bs = batch_size or settings.embedding_batch_size
         cached_map, miss_indices = self.cache.get_batch(self.model_name, texts)
 
-        # Embed only cache misses in batches
         miss_texts = [texts[i] for i in miss_indices]
         new_embeddings: list[list[float]] = []
 
         for start in range(0, len(miss_texts), bs):
             batch = miss_texts[start : start + bs]
-            logger.debug("Embedding batch %d–%d / %d", start, start + len(batch), len(miss_texts))
+            logger.debug(
+                "Embedding batch %d–%d / %d", start, start + len(batch), len(miss_texts)
+            )
             new_embeddings.extend(self._embed_raw(batch))
 
-        # Store new embeddings in cache
         for idx, emb in zip(miss_indices, new_embeddings):
             self.cache.set(self.model_name, texts[idx], emb)
             cached_map[idx] = emb
@@ -165,10 +120,6 @@ class BaseEmbedder(ABC):
         return self.embed(query)
 
 
-# ---------------------------------------------------------------------------
-# OpenAI Embedder
-# ---------------------------------------------------------------------------
-
 class OpenAIEmbedder(BaseEmbedder):
     """
     Uses OpenAI's embedding API.
@@ -178,14 +129,19 @@ class OpenAIEmbedder(BaseEmbedder):
     Rate limits: tier-1 = 1M tokens/min. Use exponential backoff on 429.
     """
 
-    def __init__(self, model: str | None = None, dimensions: int | None = None, **kwargs):
+    def __init__(
+        self, model: str | None = None, dimensions: int | None = None, **kwargs
+    ):
         super().__init__(**kwargs)
         self.model_name = model or settings.openai_embedding_model
         self.dimensions = dimensions
 
         try:
             from openai import OpenAI
-            self._client = OpenAI(api_key=settings.openai_api_key or os.environ.get("OPENAI_API_KEY"))
+
+            self._client = OpenAI(
+                api_key=settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
+            )
         except ImportError:
             raise ImportError("Install openai: pip install openai")
 
@@ -197,10 +153,6 @@ class OpenAIEmbedder(BaseEmbedder):
         response = self._client.embeddings.create(**kwargs)
         return [item.embedding for item in response.data]
 
-
-# ---------------------------------------------------------------------------
-# HuggingFace / SentenceTransformers Embedder
-# ---------------------------------------------------------------------------
 
 class HuggingFaceEmbedder(BaseEmbedder):
     """
@@ -219,16 +171,19 @@ class HuggingFaceEmbedder(BaseEmbedder):
 
         try:
             from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer(self.model_name, device=device)
         except ImportError:
-            raise ImportError("Install sentence-transformers: pip install sentence-transformers")
+            raise ImportError(
+                "Install sentence-transformers: pip install sentence-transformers"
+            )
 
         logger.info("Loaded HuggingFace embedder: %s on %s", self.model_name, device)
 
     def _embed_raw(self, texts: list[str]) -> list[list[float]]:
         embeddings = self._model.encode(
             texts,
-            normalize_embeddings=True,  # cosine sim → dot product
+            normalize_embeddings=True,
             show_progress_bar=False,
         )
         return embeddings.tolist()
@@ -241,10 +196,6 @@ class HuggingFaceEmbedder(BaseEmbedder):
             query = f"Represent this sentence for searching relevant passages: {query}"
         return self.embed(query)
 
-
-# ---------------------------------------------------------------------------
-# Cohere Embedder
-# ---------------------------------------------------------------------------
 
 class CohereEmbedder(BaseEmbedder):
     """
@@ -260,6 +211,7 @@ class CohereEmbedder(BaseEmbedder):
 
         try:
             import cohere
+
             self._client = cohere.Client(settings.cohere_api_key)
         except ImportError:
             raise ImportError("Install cohere: pip install cohere")
@@ -279,6 +231,7 @@ class CohereEmbedder(BaseEmbedder):
             return cached
 
         import cohere
+
         client = cohere.Client(settings.cohere_api_key)
         response = client.embed(
             texts=[query],
@@ -290,49 +243,8 @@ class CohereEmbedder(BaseEmbedder):
         return emb
 
 
-# ---------------------------------------------------------------------------
-# Ollama Embedder  (100 % local, zero API cost)
-# ---------------------------------------------------------------------------
-
 class OllamaEmbedder(BaseEmbedder):
-    """
-    Local embedding via the Ollama daemon using the native ``ollama`` Python SDK.
-
-    Prerequisites
-    ─────────────
-    1. Install Ollama:  https://ollama.com/download
-    2. Pull an embedding model:
-         ollama pull nomic-embed-text     # dim=768  ← default
-         ollama pull mxbai-embed-large    # dim=1024  stronger
-         ollama pull all-minilm           # dim=384   fast/tiny
-         ollama pull bge-m3               # dim=1024  multilingual
-    3. Set EMBEDDING_DIM in .env to match the model's output dimension.
-
-    How it works
-    ────────────
-    Ollama exposes ``POST /api/embed`` which accepts a list of strings and
-    returns a list of float vectors.  The Python SDK wraps this cleanly.
-    No GPU is required — CPU inference works, just slower.
-
-    Dimension map (update EMBEDDING_DIM accordingly)
-    ────────────────────────────────────────────────
-    nomic-embed-text   →  768
-    mxbai-embed-large  →  1024
-    all-minilm         →  384
-    bge-m3             →  1024
-    snowflake-arctic-embed → 1024
-
-    Production tips
-    ───────────────
-    • Run the Ollama daemon on a GPU node and point OLLAMA_BASE_URL at it for
-      throughput matching cloud APIs at zero per-token cost.
-    • Set OLLAMA_KEEP_ALIVE="24h" for always-on servers to avoid cold-start
-      latency (model stays loaded in VRAM).
-    • Set OLLAMA_KEEP_ALIVE="0" in memory-constrained environments to unload
-      immediately after each request.
-    • Ollama natively batches embed requests — send the full chunk list in one
-      call rather than looping (already handled here via _embed_raw).
-    """
+    "Local embedding via the Ollama daemon using the native ``ollama`` Python SDK."
 
     def __init__(self, model: str | None = None, **kwargs):
         super().__init__(**kwargs)
@@ -342,6 +254,7 @@ class OllamaEmbedder(BaseEmbedder):
 
         try:
             import ollama as _ollama
+
             self._client = _ollama.Client(
                 host=self._base_url,
                 timeout=self._timeout,
@@ -355,7 +268,8 @@ class OllamaEmbedder(BaseEmbedder):
 
         logger.info(
             "OllamaEmbedder initialized: model=%s base_url=%s",
-            self.model_name, self._base_url,
+            self.model_name,
+            self._base_url,
         )
 
     def _embed_raw(self, texts: list[str]) -> list[list[float]]:
@@ -369,7 +283,7 @@ class OllamaEmbedder(BaseEmbedder):
             model=self.model_name,
             input=texts,
         )
-        # SDK ≥0.3: response.embeddings is list[list[float]]
+
         embeddings = response.embeddings
         if len(embeddings) != len(texts):
             raise ValueError(
@@ -385,10 +299,6 @@ class OllamaEmbedder(BaseEmbedder):
         """
         return self.embed(query)
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def get_embedder(embedder_type: EmbedderType | None = None) -> BaseEmbedder:
     etype = embedder_type or settings.embedder_type

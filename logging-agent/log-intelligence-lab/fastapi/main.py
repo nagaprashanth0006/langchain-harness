@@ -3,11 +3,11 @@ import logging, random, time, os
 
 app = FastAPI(title="FastAPI Demo")
 
-# logging
+
 os.makedirs("logs", exist_ok=True)
 logger = logging.getLogger("fastapi")
 logger.setLevel(logging.DEBUG)
-fmt = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+fmt = logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
 fh = logging.FileHandler("logs/fastapi.log")
 fh.setFormatter(fmt)
 ch = logging.StreamHandler()
@@ -16,10 +16,12 @@ if not logger.handlers:
     logger.addHandler(fh)
     logger.addHandler(ch)
 
+
 @app.get("/ping")
 def ping():
     logger.info("ping")
     return {"status": "ok"}
+
 
 @app.get("/work/{n}")
 def work(n: int):

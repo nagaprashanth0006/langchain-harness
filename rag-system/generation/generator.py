@@ -1,47 +1,4 @@
-"""
-LLM generation backends for the RAG pipeline.
-
-Model selection guide
-─────────────────────
-Claude claude-sonnet-4-6 (default)
-  - Best reasoning and instruction-following for RAG
-  - 200K context window — fits large retrieved contexts
-  - Supports streaming, system prompts, tool use
-  - Production: use prompt caching for system prompts (50% cost reduction)
-
-Claude claude-haiku-4-5
-  - 5× cheaper, 3× faster than Sonnet
-  - Excellent for simple Q&A and summarization
-  - Use when latency < 500 ms is required
-
-GPT-4o
-  - Comparable quality to Claude Sonnet
-  - Supports parallel function calling
-  - Use when customers require OpenAI
-
-GPT-4o-mini
-  - 10× cheaper than GPT-4o; better than GPT-3.5
-  - Good for non-critical summarization tasks
-
-Open-source alternatives
-─────────────────────────
-• LLaMA 3.1 70B / 405B via Ollama, vLLM, or Together.ai
-  - Full data privacy; on-prem deployment
-  - vLLM: 2–4× throughput vs naïve serving
-• Mistral Large: strong coding + reasoning, EU jurisdiction
-• Command R+ (Cohere): built-in RAG mode with citations
-
-Production generation tips
-───────────────────────────
-1. Use prompt caching: set `cache_control` on the system prompt (Claude) or
-   seed (OpenAI). Repeated queries with the same system prompt cost 50% less.
-2. Set temperature=0.0–0.1 for factual RAG; higher for creative tasks.
-3. Stream responses for interactive UIs; buffer for batch APIs.
-4. Add a max_context_chars guard: truncate context if > model's limit.
-5. Log (prompt_tokens, completion_tokens, latency) per request for cost tracking.
-6. Implement exponential backoff with jitter on 429/503 errors.
-7. Consider response validation: check if answer contains expected entities.
-"""
+"LLM generation backends for the RAG pipeline."
 
 from __future__ import annotations
 
@@ -57,10 +14,6 @@ from generation.prompts import build_rag_prompt, RAGPromptTemplate
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Base interface
-# ---------------------------------------------------------------------------
 
 class BaseGenerator(ABC):
     model_name: str = "unknown"
@@ -91,13 +44,9 @@ class BaseGenerator(ABC):
         Override for efficiency if the backend has a cheaper completion API.
         """
         dummy_chunk: list[ScoredChunk] = []
-        # Abuse the generate path for a simple completion
+
         raise NotImplementedError("Subclass must implement complete()")
 
-
-# ---------------------------------------------------------------------------
-# Anthropic / Claude generator
-# ---------------------------------------------------------------------------
 
 class AnthropicGenerator(BaseGenerator):
     """
@@ -117,8 +66,10 @@ class AnthropicGenerator(BaseGenerator):
     ):
         try:
             import anthropic
+
             self._client = anthropic.Anthropic(
-                api_key=settings.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+                api_key=settings.anthropic_api_key
+                or os.environ.get("ANTHROPIC_API_KEY", "")
             )
             self._anthropic = anthropic
         except ImportError:
@@ -126,7 +77,9 @@ class AnthropicGenerator(BaseGenerator):
 
         self.model_name = model or settings.anthropic_model
         self.max_tokens = max_tokens or settings.max_tokens
-        self.temperature = temperature if temperature is not None else settings.temperature
+        self.temperature = (
+            temperature if temperature is not None else settings.temperature
+        )
 
     def _call(self, system: str, user_message: str) -> tuple[str, int, int]:
         """
@@ -145,7 +98,10 @@ class AnthropicGenerator(BaseGenerator):
         usage = response.usage
         logger.info(
             "Claude generation: model=%s in_tokens=%d out_tokens=%d latency=%.2fs",
-            self.model_name, usage.input_tokens, usage.output_tokens, latency,
+            self.model_name,
+            usage.input_tokens,
+            usage.output_tokens,
+            latency,
         )
         return text, usage.input_tokens, usage.output_tokens
 
@@ -192,10 +148,6 @@ class AnthropicGenerator(BaseGenerator):
         return text
 
 
-# ---------------------------------------------------------------------------
-# OpenAI generator
-# ---------------------------------------------------------------------------
-
 class OpenAIGenerator(BaseGenerator):
     """
     GPT-4o / GPT-4o-mini generation via the OpenAI SDK.
@@ -214,6 +166,7 @@ class OpenAIGenerator(BaseGenerator):
     ):
         try:
             from openai import OpenAI
+
             self._client = OpenAI(
                 api_key=settings.openai_api_key or os.environ.get("OPENAI_API_KEY", "")
             )
@@ -222,7 +175,9 @@ class OpenAIGenerator(BaseGenerator):
 
         self.model_name = model or settings.openai_model
         self.max_tokens = max_tokens or settings.max_tokens
-        self.temperature = temperature if temperature is not None else settings.temperature
+        self.temperature = (
+            temperature if temperature is not None else settings.temperature
+        )
 
     def _call(self, system: str, user_message: str) -> tuple[str, int, int]:
         t0 = time.perf_counter()
@@ -240,7 +195,10 @@ class OpenAIGenerator(BaseGenerator):
         usage = response.usage
         logger.info(
             "OpenAI generation: model=%s in_tokens=%d out_tokens=%d latency=%.2fs",
-            self.model_name, usage.prompt_tokens, usage.completion_tokens, latency,
+            self.model_name,
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            latency,
         )
         return text, usage.prompt_tokens, usage.completion_tokens
 
@@ -288,53 +246,8 @@ class OpenAIGenerator(BaseGenerator):
         return text
 
 
-# ---------------------------------------------------------------------------
-# Ollama Generator  (100 % local, zero API cost)
-# ---------------------------------------------------------------------------
-
 class OllamaGenerator(BaseGenerator):
-    """
-    Local LLM generation via the Ollama daemon.
-
-    Prerequisites
-    ─────────────
-    1. Install Ollama:  https://ollama.com/download
-    2. Pull a chat model:
-         ollama pull llama3.2          # 3B — fast, good for RAG  ← default
-         ollama pull llama3.1          # 8B — balanced quality/speed
-         ollama pull mistral           # 7B — strong reasoning
-         ollama pull mixtral           # 47B MoE — GPT-3.5 class
-         ollama pull gemma2            # 9B — Google Gemma
-         ollama pull qwen2.5           # 7B — strong multilingual
-         ollama pull phi3              # 3.8B — Microsoft, very fast
-         ollama pull deepseek-r1       # reasoning-tuned
-         ollama pull command-r         # Cohere, built for RAG + citations
-    3. Keep OLLAMA_CHAT_MODEL in .env in sync with the pulled model tag.
-
-    Context window guide
-    ─────────────────────
-    Most 7B models: 8K–32K tokens.  Set MAX_TOKENS to leave headroom.
-    llama3.1 and llama3.2 support 128K with flash-attention enabled.
-    Run `ollama show llama3.2` to inspect the model's context length.
-
-    Performance guide
-    ──────────────────
-    CPU only (no GPU):   phi3/llama3.2-3B ≈ 15–30 tok/s on M2, 5–10 tok/s on x86
-    Apple Silicon GPU:   llama3.1-8B ≈ 40–80 tok/s on M3 Max
-    NVIDIA GPU:          llama3.1-8B ≈ 100–200 tok/s on RTX 4090
-
-    Production tips
-    ───────────────
-    • Set OLLAMA_KEEP_ALIVE="24h" on dedicated inference nodes so the model
-      stays loaded in VRAM and avoids cold-start (~3–10 s for 7B models).
-    • For multi-user workloads, run multiple Ollama processes on separate GPUs
-      and load-balance with Nginx or Traefik upstream.
-    • Ollama natively handles concurrent requests up to OLLAMA_NUM_PARALLEL
-      (default=1); set OLLAMA_NUM_PARALLEL=4 for production throughput.
-    • For ultra-low latency (<200 ms), prefer llama3.2:3b or phi3:mini.
-    • For highest quality local RAG, prefer mistral-nemo or llama3.1:8b.
-    • Enable quantized models (Q4_K_M) for 2× speed with ~3% quality loss.
-    """
+    "Local LLM generation via the Ollama daemon."
 
     def __init__(
         self,
@@ -344,6 +257,7 @@ class OllamaGenerator(BaseGenerator):
     ):
         try:
             import ollama as _ollama
+
             self._client = _ollama.Client(
                 host=settings.ollama_base_url,
                 timeout=settings.ollama_timeout,
@@ -358,12 +272,15 @@ class OllamaGenerator(BaseGenerator):
 
         self.model_name = model or settings.ollama_chat_model
         self.max_tokens = max_tokens or settings.max_tokens
-        self.temperature = temperature if temperature is not None else settings.temperature
+        self.temperature = (
+            temperature if temperature is not None else settings.temperature
+        )
         self._keep_alive = settings.ollama_keep_alive
 
         logger.info(
             "OllamaGenerator initialized: model=%s base_url=%s",
-            self.model_name, settings.ollama_base_url,
+            self.model_name,
+            settings.ollama_base_url,
         )
 
     def _build_messages(self, system: str, user_message: str) -> list[dict]:
@@ -386,7 +303,7 @@ class OllamaGenerator(BaseGenerator):
             messages=self._build_messages(system, user_message),
             options={
                 "temperature": self.temperature,
-                "num_predict": self.max_tokens,   # Ollama's name for max_tokens
+                "num_predict": self.max_tokens,
             },
             keep_alive=self._keep_alive,
             stream=False,
@@ -399,7 +316,10 @@ class OllamaGenerator(BaseGenerator):
 
         logger.info(
             "Ollama generation: model=%s in_tokens=%d out_tokens=%d latency=%.2fs",
-            self.model_name, prompt_tokens, completion_tokens, latency,
+            self.model_name,
+            prompt_tokens,
+            completion_tokens,
+            latency,
         )
         return text, prompt_tokens, completion_tokens
 
@@ -454,10 +374,6 @@ class OllamaGenerator(BaseGenerator):
         )
         return text
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def get_generator(generator_type: GeneratorType | None = None) -> BaseGenerator:
     gtype = generator_type or settings.generator_type

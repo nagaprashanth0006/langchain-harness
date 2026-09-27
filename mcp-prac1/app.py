@@ -1,72 +1,51 @@
 import requests
 import streamlit as st
-import time
-import json
 
-MCP_SERVER_URL = "http://localhost:8000/call"
+SERVER_URL = "http://localhost:8000/call"
 
-st.header("Logging Agent")
-default_loki_url = "http://localhost:3100"
-default_query = '{stream="stdout"} != `LoadGen`' #'{app="agent"}'
 
-query = st.text_input("Enter your query", "What all applications seem to be running in my stack as per the logs")
-loki_url = st.text_input("Enter your loki url", default_loki_url)
-loki_query = st.text_input("Enter your loki query", default_query)
+def call_tool(name, params):
+    response = requests.post(
+        SERVER_URL, json={"tool_name": name, "params": params}, timeout=180
+    )
+    response.raise_for_status()
+    return response.json()
 
-quote = requests.post(MCP_SERVER_URL, json={"tool_name": "quote_getter", "params": {"dummy": "values"}})
-st.markdown("## Quote of the day \n --- \n ##### " + quote.text)
+
+st.title("Log analysis")
+query = st.text_input("Question", "Which applications appear in these logs?")
+loki_url = st.text_input("Loki URL", "http://localhost:3100")
+loki_query = st.text_input("LogQL query", '{stream="stdout"} != `LoadGen`')
 
 if st.button("Analyse"):
-    with st.status("Analysing"):
-        st.write("Fetching logs")
-
-        payload = {
-            "tool_name": "log_tool",
-            "params": {
-                "loki_url": loki_url,
-                "loki_query": loki_query,
-                "duration": 1800,
-                "limit": 500
-            }
-        }
-        resp = requests.post(MCP_SERVER_URL, json=payload, proxies={})
-        resp.raise_for_status()
-        logs = [ line[1] for line in resp.json()["data"]["result"][0]["values"] ]
-        st.write("Found logs. Log count:", len(logs))
-        with st.expander("Logs"):
-            st.code("\n".join(logs))
-
-
-        prompt = (f"""
-        You are a helpful and intelligent agent for log analysis.
-        Analyse the given logs below and respond to the user's query.
-        
-        # Instructions:
-        - Do not hallucinate.
-        - Always ground your responses based on data.
-        - Do not stop until the query is addressed correctly.
-        - Ensure no preamble, no postamble.
-        - Ensure the response is in relevance to user's query.
-        - No generalised responses.
-        - Do not respond with actions to user.
-        - Understand the context and query properly before responding.
-        
-        # User query:
-        {query}
-        
-        # Logs:
-        {logs}
-        """)
-
-        st.write("Sending to Agent...")
-        inference_payload = {
-            "tool_name": "run_inference",
-            "params": {
-                "prompt": prompt,
-                "model": "mistral"
-            }
-        }
-    resp = requests.post(MCP_SERVER_URL, json=inference_payload, proxies={})
-    resp.raise_for_status()
-    agent_response = resp.json()
-    st.code(agent_response, language="json")
+    try:
+        with st.status("Reading logs"):
+            result = call_tool(
+                "log_tool",
+                {
+                    "loki_url": loki_url,
+                    "loki_query": loki_query,
+                    "duration": 1800,
+                    "limit": 500,
+                },
+            )
+            logs = [
+                entry[1]
+                for stream in result.get("data", {}).get("result", [])
+                for entry in stream.get("values", [])
+            ]
+            if not logs:
+                st.info("No logs matched. Try a different query or time range.")
+            else:
+                with st.expander(f"Logs ({len(logs)})"):
+                    st.code("\n".join(logs))
+                prompt = (
+                    f"Answer using only these logs. Say when the evidence is missing.\nQuestion: {query}\nLogs:\n"
+                    + "\n".join(logs)
+                )
+                answer = call_tool(
+                    "run_inference", {"prompt": prompt, "model": "mistral"}
+                )
+                st.write(answer)
+    except (requests.RequestException, ValueError) as exc:
+        st.error(f"Could not complete the request: {exc}")
